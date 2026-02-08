@@ -45,10 +45,12 @@ export async function sendQuote(
 
     const supabase = await createClient();
 
-    // Fetch quote with customer and business data
+    // Fetch quote with only the columns needed for delivery
     const { data: quote, error: quoteError } = await supabase
       .from("quotes")
-      .select("*")
+      .select(
+        "id, status, customer_id, business_id, quote_number, title, subtotal_cents, tax_cents, total_cents, notes, expires_at",
+      )
       .eq("id", quoteId)
       .single();
 
@@ -60,19 +62,21 @@ export async function sendQuote(
       return { error: `Quote has already been ${quote.status}.` };
     }
 
-    // Fetch line items
+    // Fetch line items (only columns used in email template)
     const { data: lineItems } = await supabase
       .from("quote_line_items")
-      .select("*")
+      .select(
+        "id, title, description, quantity, unit, unit_price_cents, line_total_cents",
+      )
       .eq("quote_id", quoteId)
       .order("sort_order");
 
-    // Fetch customer
+    // Fetch customer (only columns needed for delivery)
     let customer = null;
     if (quote.customer_id) {
       const { data } = await supabase
         .from("customers")
-        .select("*")
+        .select("id, first_name, last_name, email, phone")
         .eq("id", quote.customer_id)
         .single();
       customer = data;
@@ -190,10 +194,12 @@ export async function acceptQuote(
 
     const supabase = await createClient();
 
-    // Fetch quote
+    // Fetch quote (only columns needed for accept flow)
     const { data: quote, error: quoteError } = await supabase
       .from("quotes")
-      .select("*")
+      .select(
+        "id, status, customer_id, business_id, quote_number, title, total_cents, viewed_at, expires_at",
+      )
       .eq("id", quoteId)
       .single();
 

@@ -27,9 +27,25 @@ import type {
 // ============================================================================
 
 type PublicQuoteViewProps = {
-  quote: Quote;
-  lineItems: QuoteLineItem[];
-  customer: Customer | null;
+  quote: Pick<
+    Quote,
+    | "id"
+    | "status"
+    | "title"
+    | "quote_number"
+    | "subtotal_cents"
+    | "tax_rate"
+    | "tax_cents"
+    | "discount_cents"
+    | "total_cents"
+    | "customer_notes"
+    | "expires_at"
+  >;
+  lineItems: Pick<
+    QuoteLineItem,
+    "id" | "title" | "description" | "quantity" | "unit" | "line_total_cents"
+  >[];
+  customer: Pick<Customer, "first_name" | "last_name"> | null;
   business: Pick<Business, "name" | "logo_url" | "primary_color">;
 };
 

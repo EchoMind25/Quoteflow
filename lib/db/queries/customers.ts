@@ -15,7 +15,9 @@ export async function searchCustomers(options: SearchCustomersOptions) {
 
   const { data, error } = await supabase
     .from("customers")
-    .select("*")
+    .select(
+      "id, first_name, last_name, email, phone, company_name, address_line1, city, state, zip_code",
+    )
     .or(
       `first_name.ilike.${searchTerm},` +
         `last_name.ilike.${searchTerm},` +

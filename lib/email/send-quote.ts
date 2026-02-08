@@ -13,9 +13,21 @@ import type {
 // ============================================================================
 
 export type SendQuoteEmailInput = {
-  quote: Quote;
-  lineItems: QuoteLineItem[];
-  customer: Customer;
+  quote: Pick<
+    Quote,
+    | "quote_number"
+    | "title"
+    | "subtotal_cents"
+    | "tax_cents"
+    | "total_cents"
+    | "notes"
+    | "expires_at"
+  >;
+  lineItems: Pick<
+    QuoteLineItem,
+    "title" | "description" | "quantity" | "unit" | "line_total_cents"
+  >[];
+  customer: Pick<Customer, "first_name" | "last_name" | "email">;
   business: Pick<
     Business,
     "name" | "logo_url" | "primary_color" | "email"
@@ -112,7 +124,7 @@ export async function sendQuoteEmail(
 // ============================================================================
 
 export async function sendAcceptanceNotification(input: {
-  quote: Quote;
+  quote: Pick<Quote, "id" | "quote_number" | "title" | "total_cents">;
   customerName: string;
   businessEmail: string;
   businessName: string;

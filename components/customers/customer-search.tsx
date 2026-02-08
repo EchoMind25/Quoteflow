@@ -34,8 +34,6 @@ type CustomerSearchProps = {
 // ============================================================================
 
 const DEBOUNCE_MS = 300;
-const SEARCH_CACHE_KEY = "customer-search-recent";
-const MAX_CACHED_SEARCHES = 50;
 
 // ============================================================================
 // Component
@@ -411,25 +409,6 @@ async function searchCachedCustomers(
   try {
     const allCached = await getAllCachedCustomers();
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-
-    // Store recent search queries in localStorage for quick lookup
-    try {
-      const recentSearches = JSON.parse(
-        localStorage.getItem(SEARCH_CACHE_KEY) ?? "[]",
-      ) as string[];
-      if (!recentSearches.includes(query)) {
-        recentSearches.unshift(query);
-        if (recentSearches.length > MAX_CACHED_SEARCHES) {
-          recentSearches.pop();
-        }
-        localStorage.setItem(
-          SEARCH_CACHE_KEY,
-          JSON.stringify(recentSearches),
-        );
-      }
-    } catch {
-      // localStorage not available
-    }
 
     return allCached
       .filter((cached) => {
