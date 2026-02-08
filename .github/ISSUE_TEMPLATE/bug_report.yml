@@ -1,0 +1,134 @@
+name: Bug Report
+description: Report a bug found during testing
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How severe is this bug?
+      options:
+        - "P0 - Blocking (app crashes, data loss, auth bypass)"
+        - "P1 - High (feature broken, major UX issue)"
+        - "P2 - Medium (partial functionality, workaround exists)"
+        - "P3 - Low (cosmetic, minor inconvenience)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      options:
+        - "Auth (login/signup/session)"
+        - "Quote Creation (wizard/voice/AI)"
+        - "Quote Delivery (email/SMS/public view)"
+        - "Customer Management"
+        - "Settings (profile/branding/defaults/catalog)"
+        - "Offline/Sync"
+        - "Performance"
+        - "Security"
+        - "PWA (install/service worker)"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to trigger the bug
+      placeholder: |
+        1. Navigate to /app/quotes/new
+        2. Record a voice note (15 seconds)
+        3. Click "Generate with AI"
+        4. Observe error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens? Include error messages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Device, browser, OS details
+      placeholder: |
+        - Device: iPhone 14 Pro / Pixel 7 / MacBook Pro
+        - Browser: Chrome 124 / Safari 17.4 / Firefox 125
+        - OS: iOS 17.4 / Android 14 / macOS 14.4
+        - Network: WiFi / 4G / Offline
+        - PWA: Installed / Browser tab
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Videos
+      description: Attach screenshots or screen recordings
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console Logs / Sentry Link
+      description: Paste relevant console output or link to Sentry issue
+
+  - type: dropdown
+    id: test_case
+    attributes:
+      label: Related Test Case
+      description: Which test case from the testing plan?
+      options:
+        - "TC-AUTH-01: Email signup"
+        - "TC-AUTH-02: Magic link login"
+        - "TC-AUTH-03: Session refresh"
+        - "TC-AUTH-04: Auth redirect"
+        - "TC-QUOTE-01: Voice recording"
+        - "TC-QUOTE-02: Transcription"
+        - "TC-QUOTE-03: AI generation"
+        - "TC-QUOTE-04: Line item editing"
+        - "TC-QUOTE-05: Quote save"
+        - "TC-QUOTE-06: Photo upload"
+        - "TC-QUOTE-07: Multi-photo"
+        - "TC-SEND-01: Email delivery"
+        - "TC-SEND-02: SMS delivery"
+        - "TC-SEND-03: Public view"
+        - "TC-SEND-04: Accept quote"
+        - "TC-SEND-05: Decline quote"
+        - "TC-CUST-01: Create customer"
+        - "TC-CUST-02: Search customer"
+        - "TC-CUST-03: Edit customer"
+        - "TC-SET-01: Business profile"
+        - "TC-SET-02: Logo upload"
+        - "TC-SET-03: Brand color"
+        - "TC-SET-04: Quote defaults"
+        - "TC-SET-05: Catalog CRUD"
+        - "TC-SET-06: Notifications"
+        - "TC-OFFLINE-01: Queue creation"
+        - "TC-OFFLINE-02: Sync on reconnect"
+        - "TC-OFFLINE-03: Conflict resolution"
+        - "TC-OFFLINE-04: Background sync"
+        - "TC-PERF-01: Lighthouse"
+        - "TC-PERF-02: Core Web Vitals"
+        - "TC-PERF-03: PWA install"
+        - "TC-SEC-01: RLS isolation"
+        - "TC-SEC-02: Public URL leakage"
+        - "TC-SEC-03: File upload validation"
+        - "TC-SEC-04: Input sanitization"
+        - "N/A"
