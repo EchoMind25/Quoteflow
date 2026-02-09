@@ -12,6 +12,7 @@ import {
   CheckCircle,
   ExternalLink,
   Copy,
+  ImageIcon,
 } from "lucide-react";
 import {
   sendQuote,
@@ -33,6 +34,7 @@ type QuoteDetailViewProps = {
   quote: Quote;
   lineItems: QuoteLineItem[];
   customer: Customer | null;
+  photoUrls?: string[];
 };
 
 // ============================================================================
@@ -45,6 +47,7 @@ export function QuoteDetailView({
   quote,
   lineItems,
   customer,
+  photoUrls = [],
 }: QuoteDetailViewProps) {
   const [showSendPanel, setShowSendPanel] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
@@ -153,6 +156,34 @@ export function QuoteDetailView({
           </div>
         </div>
       </div>
+
+      {/* Photo gallery */}
+      {photoUrls.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <ImageIcon className="h-4 w-4 text-[hsl(var(--muted-foreground))]" />
+            Job Site Photos ({photoUrls.length})
+          </h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {photoUrls.map((url, index) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block aspect-square overflow-hidden rounded-lg border border-[hsl(var(--border))] transition-colors hover:border-brand-500"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Job photo ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Send button / panel */}
       {quote.status === "draft" && !sendState.success && (

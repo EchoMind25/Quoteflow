@@ -60,11 +60,27 @@ export default async function QuoteDetailPage({ params }: Props) {
     customer = data;
   }
 
+  // Fetch quote photos
+  const { data: photos } = await supabase
+    .from("quote_photos")
+    .select("id, storage_path, sort_order")
+    .eq("quote_id", id)
+    .order("sort_order");
+
+  // Resolve storage paths to public URLs
+  const photoUrls = (photos ?? []).map((photo) => {
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("quote-photos").getPublicUrl(photo.storage_path);
+    return publicUrl;
+  });
+
   return (
     <QuoteDetailView
       quote={quote}
       lineItems={lineItems ?? []}
       customer={customer}
+      photoUrls={photoUrls}
     />
   );
 }

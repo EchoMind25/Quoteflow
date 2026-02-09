@@ -29,6 +29,12 @@ import {
   type GenerateQuoteState,
   type GeneratedLineItem,
 } from "@/lib/actions/ai";
+import {
+  uploadQuotePhotos,
+  saveQuotePhotos,
+  type UploadedPhoto,
+  type UploadPhotosResult,
+} from "@/lib/storage/upload-photos";
 import { cacheAudio } from "@/lib/db/indexed-db";
 import { isOnline } from "@/lib/sync/offline-sync";
 import { createQuoteOptimistic } from "@/lib/sync/optimistic-quote";
@@ -121,6 +127,7 @@ export function QuoteCreationWizard({
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [showInlineCustomerForm, setShowInlineCustomerForm] = useState(false);
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [step, setStep] = useState<WizardStep>("customer");
   const [wizardState, setWizardState] = useState<WizardState>({
     selectedCustomer: null,
@@ -296,12 +303,18 @@ export function QuoteCreationWizard({
     };
 
     try {
-      await createQuoteOptimistic(quoteInput);
+      const { tempId } = await createQuoteOptimistic(quoteInput);
+
+      // Save photo records linked to the new quote
+      if (uploadedPhotos.length > 0 && isOnline()) {
+        await saveQuotePhotos(tempId, uploadedPhotos);
+      }
+
       window.location.href = "/app/quotes";
     } finally {
       setIsSaving(false);
     }
-  }, [businessId, userId, wizardState, defaultTaxRate, defaultExpiryDays]);
+  }, [businessId, userId, wizardState, defaultTaxRate, defaultExpiryDays, uploadedPhotos]);
 
   // ---- Customer selection handlers ----
   const handleSelectCustomer = useCallback((customer: CustomerResult) => {
@@ -319,7 +332,7 @@ export function QuoteCreationWizard({
     setStep("photos");
   }, []);
 
-  // ---- Handle photo upload to Supabase Storage ----
+  // ---- Handle photo upload to Supabase Storage (server-side compression) ----
   const handlePhotosNext = useCallback(async () => {
     if (photoFiles.length === 0) {
       setStep("voice");
@@ -328,36 +341,39 @@ export function QuoteCreationWizard({
 
     setIsUploadingPhotos(true);
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const urls: string[] = [];
-
+      const formData = new FormData();
+      formData.append("business_id", businessId ?? "");
       for (const file of photoFiles) {
-        const filename = `${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage
-          .from("quote-photos")
-          .upload(filename, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (error) throw error;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("quote-photos").getPublicUrl(data.path);
-
-        urls.push(publicUrl);
+        formData.append("photos", file);
       }
 
-      setWizardState((s) => ({ ...s, photoUrls: urls }));
+      const result: UploadPhotosResult = await uploadQuotePhotos(
+        {},
+        formData,
+      );
+
+      if (result.error) {
+        // eslint-disable-next-line no-console
+        console.error("Photo upload failed:", result.error);
+        return;
+      }
+
+      if (result.photos) {
+        setUploadedPhotos(result.photos);
+        setWizardState((s) => ({
+          ...s,
+          photoUrls: result.photos!.map((p) => p.publicUrl),
+        }));
+      }
+
       setStep("voice");
     } catch {
+      // eslint-disable-next-line no-console
       console.error("Failed to upload photos");
     } finally {
       setIsUploadingPhotos(false);
     }
-  }, [photoFiles]);
+  }, [photoFiles, businessId]);
 
   // ---- Computed values ----
   const isStepCompleted = (s: WizardStep): boolean => {

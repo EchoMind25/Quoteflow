@@ -4,8 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { transcribeAudio, TranscriptionError } from "@/lib/ai/transcription";
 import {
   analyzePhotosAndTranscript,
+  generateQuoteFromTextAnalysis,
   VisionAnalysisError,
 } from "@/lib/ai/vision";
+import {
+  analyzePhotosWithGemini,
+  GeminiAnalysisError,
+} from "@/lib/ai/gemini";
+import { generateSignedPhotoUrls } from "@/lib/ai/privacy";
 import { checkAIRateLimit } from "@/lib/rate-limit";
 import type { IndustryType } from "@/types/database";
 
@@ -194,21 +200,80 @@ export async function generateQuoteFromAI(
       return { error: "Maximum 10 photos allowed per analysis." };
     }
 
-    // 3. Resolve photo URLs — convert storage paths to public URLs
-    const supabase = await createClient();
-    const resolvedUrls = photoUrls.map((url) => {
-      // If already a full URL, use as-is
-      if (url.startsWith("http://") || url.startsWith("https://")) {
-        return url;
-      }
-      // Otherwise treat as Supabase Storage path
-      const { data } = supabase.storage
-        .from("quote-photos")
-        .getPublicUrl(url);
-      return data.publicUrl;
-    });
+    // 3. Resolve photo URLs — convert storage paths to signed or public URLs
+    const storagePaths: string[] = [];
+    const fullUrls: string[] = [];
 
-    // 4. Call Claude Vision
+    for (const url of photoUrls) {
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        fullUrls.push(url);
+      } else {
+        storagePaths.push(url);
+      }
+    }
+
+    // Generate time-limited signed URLs for storage paths
+    let resolvedUrls = [...fullUrls];
+    if (storagePaths.length > 0) {
+      const { urls: signedUrls, errors: signErrors } =
+        await generateSignedPhotoUrls(storagePaths);
+
+      if (signErrors.length > 0) {
+        console.warn("Signed URL errors (falling back to public):", signErrors);
+        // Fall back to public URLs for any that failed
+        const supabase = await createClient();
+        for (const path of storagePaths) {
+          const signed = signedUrls.find((s) => s.originalPath === path);
+          if (signed) {
+            resolvedUrls.push(signed.signedUrl);
+          } else {
+            const { data } = supabase.storage
+              .from("quote-photos")
+              .getPublicUrl(path);
+            resolvedUrls.push(data.publicUrl);
+          }
+        }
+      } else {
+        resolvedUrls = [
+          ...fullUrls,
+          ...signedUrls.map((s) => s.signedUrl),
+        ];
+      }
+    }
+
+    // 4. Dual-AI pipeline: Gemini (image analysis) → Claude (quote generation)
+    //    Falls back to direct Claude Vision if Gemini is unavailable or fails
+    if (resolvedUrls.length > 0 && process.env.GOOGLE_AI_API_KEY) {
+      try {
+        // Step 1: Gemini analyzes photos for visual details
+        const geminiAnalysis = await analyzePhotosWithGemini(
+          resolvedUrls,
+          industry,
+        );
+
+        // Step 2: Claude generates structured quote from text analysis + transcript
+        const result = await generateQuoteFromTextAnalysis({
+          geminiAnalysis,
+          transcript,
+          industry,
+        });
+
+        return {
+          lineItems: result.lineItems,
+          title: result.suggestedTitle,
+          scopeOfWork: result.scopeOfWork,
+          confidence: result.overallConfidence,
+        };
+      } catch (err) {
+        // Log Gemini failure and fall through to direct Claude Vision
+        console.warn(
+          "Gemini analysis failed, falling back to Claude Vision:",
+          err instanceof GeminiAnalysisError ? err.message : err,
+        );
+      }
+    }
+
+    // Fallback: Direct Claude Vision (original path)
     const result = await analyzePhotosAndTranscript({
       photoUrls: resolvedUrls,
       transcript,

@@ -566,7 +566,7 @@ export type Database = {
         | "declined"
         | "expired";
       line_item_type: "service" | "material" | "labor" | "other";
-      industry_type: "hvac" | "plumbing" | "electrical" | "general";
+      industry_type: "hvac" | "plumbing" | "electrical" | "roofing" | "landscaping" | "general";
     };
     CompositeTypes: {
       [_ in never]: never;

@@ -7,6 +7,8 @@ import {
   getFewShotExample,
   type QuoteAnalysisResult,
 } from "@/lib/ai/prompts/quote-analysis";
+import type { ImageAnalysisResult } from "@/lib/ai/gemini";
+import { formatAnalysisForClaude } from "@/lib/ai/gemini";
 
 // ============================================================================
 // Types
@@ -14,6 +16,12 @@ import {
 
 export type VisionAnalysisInput = {
   photoUrls: string[];
+  transcript: string;
+  industry: IndustryType;
+};
+
+export type TextAnalysisInput = {
+  geminiAnalysis: ImageAnalysisResult;
   transcript: string;
   industry: IndustryType;
 };
@@ -53,6 +61,45 @@ function getClient(): Anthropic {
     client = new Anthropic({ apiKey });
   }
   return client;
+}
+
+// ============================================================================
+// Retry config
+// ============================================================================
+
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof VisionAnalysisError) {
+    // Don't retry validation errors or missing input — those won't succeed on retry
+    return err.code === "API_ERROR" || err.code === "PARSE_ERROR";
+  }
+  return true;
+}
+
+// ============================================================================
+// Transcript quality detection
+// ============================================================================
+
+const FILLER_WORDS = new Set([
+  "um", "uh", "like", "yeah", "ok", "okay", "so", "well", "hmm",
+  "ah", "er", "you", "know", "i", "mean", "the", "a", "an", "is",
+  "and", "it", "to", "of", "in", "that", "this",
+]);
+
+/**
+ * Detect if a transcript has meaningful content.
+ * Returns false for empty, silence, or filler-only transcripts (< 10 meaningful words).
+ */
+export function isTranscriptMeaningful(transcript: string): boolean {
+  const words = transcript
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .split(/\s+/)
+    .filter((w) => w.length > 0 && !FILLER_WORDS.has(w));
+
+  return words.length >= 10;
 }
 
 // ============================================================================
@@ -106,6 +153,129 @@ export async function analyzePhotosAndTranscript(
     text: `Now analyze this new job and produce your JSON estimate.${photoSection}${transcriptSection}\n\nRespond with ONLY the JSON object. No markdown formatting, no code fences, no extra text.`,
   });
 
+  // Retry loop with exponential backoff (1s, 2s, 4s)
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const result = await callClaudeAndParse(
+        anthropic,
+        contentBlocks,
+        industry,
+      );
+      return result;
+    } catch (err) {
+      lastError = err;
+
+      // Don't retry non-transient errors
+      if (!isRetryable(err)) {
+        throw err;
+      }
+
+      // Backoff before next attempt (skip delay on last attempt)
+      if (attempt < MAX_RETRIES - 1) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  // All retries exhausted
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+  throw new VisionAnalysisError("API_ERROR", "AI analysis failed after retries");
+}
+
+// ============================================================================
+// Text-based quote generation (Gemini analysis → Claude)
+// ============================================================================
+
+/**
+ * Generate a structured quote from Gemini's text-based photo analysis + transcript.
+ * This avoids sending images to Claude, reducing cost while maintaining quote quality.
+ * Uses the same Claude model, prompts, validation, and fallback pricing as the
+ * direct vision path.
+ */
+export async function generateQuoteFromTextAnalysis(
+  input: TextAnalysisInput,
+): Promise<VisionAnalysisResult> {
+  const { geminiAnalysis, transcript, industry } = input;
+
+  const anthropic = getClient();
+
+  // Format Gemini's structured analysis as readable text for Claude
+  const analysisText = formatAnalysisForClaude(geminiAnalysis);
+
+  // Build content blocks (text only — no image blocks)
+  const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
+
+  // Add few-shot example
+  const example = getFewShotExample(industry);
+  contentBlocks.push({
+    type: "text",
+    text: `Here is an example of a correct analysis for reference:\n\n${example}`,
+  });
+
+  // Build the analysis context
+  const transcriptSection = transcript.trim()
+    ? `\n\nTechnician voice note transcript:\n"${transcript.trim()}"`
+    : "";
+
+  contentBlocks.push({
+    type: "text",
+    text: `Now analyze this new job and produce your JSON estimate.
+
+## Photo Analysis (from image AI)
+${analysisText}${transcriptSection}
+
+Based on the photo analysis above and the technician's notes, generate a detailed quote with accurate line items and pricing.
+Respond with ONLY the JSON object. No markdown formatting, no code fences, no extra text.`,
+  });
+
+  // Retry loop with exponential backoff (same as vision path)
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const result = await callClaudeAndParse(
+        anthropic,
+        contentBlocks,
+        industry,
+      );
+      return result;
+    } catch (err) {
+      lastError = err;
+
+      if (!isRetryable(err)) {
+        throw err;
+      }
+
+      if (attempt < MAX_RETRIES - 1) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+  throw new VisionAnalysisError(
+    "API_ERROR",
+    "AI quote generation failed after retries",
+  );
+}
+
+// ============================================================================
+// Claude call + parse (extracted for retry loop)
+// ============================================================================
+
+async function callClaudeAndParse(
+  anthropic: Anthropic,
+  contentBlocks: Anthropic.Messages.ContentBlockParam[],
+  industry: VisionAnalysisInput["industry"],
+): Promise<VisionAnalysisResult> {
   // Call Claude
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
