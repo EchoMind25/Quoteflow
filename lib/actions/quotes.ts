@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { sendQuoteEmail, sendAcceptanceNotification } from "@/lib/email/send-quote";
 import { sendQuoteSMS } from "@/lib/sms/send-quote";
 import { checkEmailRateLimit } from "@/lib/rate-limit";
@@ -99,7 +100,7 @@ export async function sendQuote(
 
     // Rate limit check for email delivery
     if (deliveryMethod === "email" || deliveryMethod === "both") {
-      const emailLimit = checkEmailRateLimit(quote.business_id);
+      const emailLimit = await checkEmailRateLimit(quote.business_id);
       if (!emailLimit.allowed) {
         return { error: "Daily email limit reached (100/day). Please try again tomorrow." };
       }
@@ -192,15 +193,17 @@ export async function acceptQuote(
       return { error: "Quote ID is required." };
     }
 
-    const supabase = await createClient();
+    // Service role for reads (anon SELECT policies removed in 0009)
+    const serviceClient = createServiceClient();
 
     // Fetch quote (only columns needed for accept flow)
-    const { data: quote, error: quoteError } = await supabase
+    const { data: quote, error: quoteError } = await serviceClient
       .from("quotes")
       .select(
         "id, status, customer_id, business_id, quote_number, title, total_cents, viewed_at, expires_at",
       )
       .eq("id", quoteId)
+      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
       .single();
 
     if (quoteError || !quote) {
@@ -221,7 +224,7 @@ export async function acceptQuote(
 
     // Check expiry
     if (quote.expires_at && new Date(quote.expires_at) < new Date()) {
-      await supabase
+      await serviceClient
         .from("quotes")
         .update({ status: "expired" })
         .eq("id", quoteId);
@@ -230,7 +233,7 @@ export async function acceptQuote(
 
     // Update status (and mark as viewed if not already, in a single atomic update)
     const now = new Date().toISOString();
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from("quotes")
       .update({
         status: "accepted",
@@ -244,7 +247,7 @@ export async function acceptQuote(
     }
 
     // Send notification to business owner
-    const { data: business } = await supabase
+    const { data: business } = await serviceClient
       .from("businesses")
       .select("name, email")
       .eq("id", quote.business_id)
@@ -253,7 +256,7 @@ export async function acceptQuote(
     if (business?.email) {
       let customerName = "A customer";
       if (quote.customer_id) {
-        const { data: customer } = await supabase
+        const { data: customer } = await serviceClient
           .from("customers")
           .select("first_name, last_name")
           .eq("id", quote.customer_id)
@@ -297,13 +300,15 @@ export async function declineQuote(
       return { error: "Quote ID is required." };
     }
 
-    const supabase = await createClient();
+    // Service role for reads (anon SELECT policies removed in 0009)
+    const serviceClient = createServiceClient();
 
     // Fetch quote
-    const { data: quote, error: quoteError } = await supabase
+    const { data: quote, error: quoteError } = await serviceClient
       .from("quotes")
       .select("id, status")
       .eq("id", quoteId)
+      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
       .single();
 
     if (quoteError || !quote) {
@@ -318,7 +323,7 @@ export async function declineQuote(
       return { error: "This quote has already been declined." };
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from("quotes")
       .update({
         status: "declined",

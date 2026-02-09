@@ -555,6 +555,14 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      check_rate_limit: {
+        Args: {
+          p_key: string;
+          p_max_tokens: number;
+          p_window_seconds: number;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       user_role: "owner" | "admin" | "technician" | "viewer";

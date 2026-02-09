@@ -1,67 +1,46 @@
 // ============================================================================
-// In-memory sliding window rate limiter (per-process)
+// Supabase-backed rate limiter (persistent, multi-instance safe)
 // ============================================================================
 
-type RateLimitEntry = {
-  timestamps: number[];
-};
+import { createServiceClient } from "@/lib/supabase/service";
 
-const store = new Map<string, RateLimitEntry>();
-
-// Clean up stale entries every 5 minutes
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store.entries()) {
-      // Remove entries with no timestamps in the last hour
-      entry.timestamps = entry.timestamps.filter(
-        (ts) => now - ts < 60 * 60 * 1000,
-      );
-      if (entry.timestamps.length === 0) {
-        store.delete(key);
-      }
-    }
-  }, 5 * 60 * 1000);
-}
-
-type RateLimitResult = {
+export type RateLimitResult = {
   allowed: boolean;
   remaining: number;
   resetMs: number;
 };
 
-export function checkRateLimit(
+/**
+ * Check rate limit using the Postgres-backed `check_rate_limit` function.
+ * Atomic and consistent across all server instances.
+ */
+export async function checkRateLimit(
   key: string,
   maxRequests: number,
-  windowMs: number,
-): RateLimitResult {
-  const now = Date.now();
-  const windowStart = now - windowMs;
+  windowSeconds: number,
+): Promise<RateLimitResult> {
+  const supabase = createServiceClient();
 
-  let entry = store.get(key);
-  if (!entry) {
-    entry = { timestamps: [] };
-    store.set(key, entry);
+  const { data, error } = await supabase.rpc("check_rate_limit", {
+    p_key: key,
+    p_max_tokens: maxRequests,
+    p_window_seconds: windowSeconds,
+  });
+
+  if (error) {
+    // If rate limit check fails, allow the request (fail open) but log
+    console.warn("Rate limit check failed, allowing request:", error.message);
+    return { allowed: true, remaining: 0, resetMs: 0 };
   }
 
-  // Remove timestamps outside the window
-  entry.timestamps = entry.timestamps.filter((ts) => ts > windowStart);
+  const result = data as { allowed: boolean; remaining: number; reset_at: string };
+  const resetAt = new Date(result.reset_at).getTime();
+  const resetMs = Math.max(0, resetAt - Date.now());
 
-  if (entry.timestamps.length >= maxRequests) {
-    const oldestInWindow = entry.timestamps[0]!;
-    const resetMs = oldestInWindow + windowMs - now;
-    return {
-      allowed: false,
-      remaining: 0,
-      resetMs: Math.max(0, resetMs),
-    };
-  }
-
-  entry.timestamps.push(now);
   return {
-    allowed: true,
-    remaining: maxRequests - entry.timestamps.length,
-    resetMs: windowMs,
+    allowed: result.allowed,
+    remaining: result.remaining,
+    resetMs,
   };
 }
 
@@ -70,16 +49,22 @@ export function checkRateLimit(
 // ============================================================================
 
 /** AI endpoints: 10 requests/min per business */
-export function checkAIRateLimit(businessId: string): RateLimitResult {
-  return checkRateLimit(`ai:${businessId}`, 10, 60 * 1000);
+export async function checkAIRateLimit(
+  businessId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`ai:${businessId}`, 10, 60);
 }
 
 /** Photo uploads: 20 per minute per user */
-export function checkPhotoUploadRateLimit(userId: string): RateLimitResult {
-  return checkRateLimit(`photo:${userId}`, 20, 60 * 1000);
+export async function checkPhotoUploadRateLimit(
+  userId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`photo:${userId}`, 20, 60);
 }
 
 /** Email delivery: 100 per day per business */
-export function checkEmailRateLimit(businessId: string): RateLimitResult {
-  return checkRateLimit(`email:${businessId}`, 100, 24 * 60 * 60 * 1000);
+export async function checkEmailRateLimit(
+  businessId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(`email:${businessId}`, 100, 86400);
 }

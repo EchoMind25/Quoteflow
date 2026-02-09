@@ -159,7 +159,7 @@ export async function generateQuoteFromAI(
         .eq("id", authUser.id)
         .single();
       if (profile?.business_id) {
-        const limit = checkAIRateLimit(profile.business_id);
+        const limit = await checkAIRateLimit(profile.business_id);
         if (!limit.allowed) {
           const waitSec = Math.ceil(limit.resetMs / 1000);
           return {

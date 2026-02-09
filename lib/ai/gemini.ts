@@ -1,42 +1,50 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
 import type { IndustryType } from "@/types/database";
 
 // ============================================================================
-// Types
+// Zod schemas
 // ============================================================================
 
-export type ImageAnalysisResult = {
-  equipment: EquipmentItem[];
-  conditions: ConditionNote[];
-  measurements: Measurement[];
-  recommendations: string[];
-  overallAssessment: string;
-};
+const equipmentItemSchema = z.object({
+  name: z.string(),
+  brand: z.string().nullish().transform((v) => v ?? undefined),
+  model: z.string().nullish().transform((v) => v ?? undefined),
+  age: z.string().nullish().transform((v) => v ?? undefined),
+  condition: z.enum(["good", "fair", "poor", "failed", "unknown"]),
+  details: z.string(),
+});
 
-type EquipmentItem = {
-  name: string;
-  brand?: string;
-  model?: string;
-  age?: string;
-  condition: "good" | "fair" | "poor" | "failed" | "unknown";
-  details: string;
-};
+const conditionNoteSchema = z.object({
+  area: z.string(),
+  issue: z.string(),
+  severity: z.enum(["low", "medium", "high", "critical"]),
+});
 
-type ConditionNote = {
-  area: string;
-  issue: string;
-  severity: "low" | "medium" | "high" | "critical";
-};
+const measurementSchema = z.object({
+  item: z.string(),
+  value: z.string(),
+  unit: z.string(),
+  confidence: z.number().min(0).max(1),
+});
 
-type Measurement = {
-  item: string;
-  value: string;
-  unit: string;
-  confidence: number;
-};
+const imageAnalysisResultSchema = z.object({
+  equipment: z.array(equipmentItemSchema).default([]),
+  conditions: z.array(conditionNoteSchema).default([]),
+  measurements: z.array(measurementSchema).default([]),
+  recommendations: z.array(z.string()).default([]),
+  overallAssessment: z.string().default("No assessment available"),
+});
+
+// ============================================================================
+// Types (inferred from Zod schemas)
+// ============================================================================
+
+export type ImageAnalysisResult = z.infer<typeof imageAnalysisResultSchema>;
+type EquipmentItem = z.infer<typeof equipmentItemSchema>;
 
 export class GeminiAnalysisError extends Error {
-  code: "API_ERROR" | "PARSE_ERROR" | "CONFIG_ERROR";
+  code: "API_ERROR" | "PARSE_ERROR" | "VALIDATION_ERROR" | "CONFIG_ERROR";
 
   constructor(code: GeminiAnalysisError["code"], message: string) {
     super(message);
@@ -220,7 +228,7 @@ Respond with ONLY the JSON object. No markdown, no code fences, no extra text.`;
 }
 
 // ============================================================================
-// Response parsing
+// Response parsing with Zod validation
 // ============================================================================
 
 function parseGeminiResponse(text: string): ImageAnalysisResult {
@@ -242,34 +250,20 @@ function parseGeminiResponse(text: string): ImageAnalysisResult {
     );
   }
 
-  // Basic shape validation (Gemini output is intermediate, not user-facing)
-  if (typeof parsed !== "object" || parsed === null) {
+  // Validate with Zod schema
+  const result = imageAnalysisResultSchema.safeParse(parsed);
+
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
     throw new GeminiAnalysisError(
-      "PARSE_ERROR",
-      "Gemini response is not a JSON object",
+      "VALIDATION_ERROR",
+      `Gemini response failed schema validation: ${issues}`,
     );
   }
 
-  const obj = parsed as Record<string, unknown>;
-
-  return {
-    equipment: Array.isArray(obj.equipment)
-      ? (obj.equipment as EquipmentItem[])
-      : [],
-    conditions: Array.isArray(obj.conditions)
-      ? (obj.conditions as ConditionNote[])
-      : [],
-    measurements: Array.isArray(obj.measurements)
-      ? (obj.measurements as Measurement[])
-      : [],
-    recommendations: Array.isArray(obj.recommendations)
-      ? (obj.recommendations as string[])
-      : [],
-    overallAssessment:
-      typeof obj.overallAssessment === "string"
-        ? obj.overallAssessment
-        : "No assessment available",
-  };
+  return result.data;
 }
 
 /**
@@ -287,7 +281,7 @@ export function formatAnalysisForClaude(
 
   // Equipment found
   if (analysis.equipment.length > 0) {
-    const items = analysis.equipment.map((eq) => {
+    const items = analysis.equipment.map((eq: EquipmentItem) => {
       const parts = [`- **${eq.name}**`];
       if (eq.brand) parts.push(`Brand: ${eq.brand}`);
       if (eq.model) parts.push(`Model: ${eq.model}`);

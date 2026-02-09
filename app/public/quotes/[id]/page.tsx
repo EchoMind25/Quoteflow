@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { PublicQuoteView } from "@/components/quotes/public-quote-view";
@@ -7,14 +7,18 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+// Service-role client bypasses RLS — safe here because we filter by exact
+// UUID (secret-link model) and only expose customer-facing columns.
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: quote } = await supabase
     .from("quotes")
-    .select("title, quote_number")
+    .select("title, quote_number, status")
     .eq("id", id)
+    .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
     .single();
 
   return {
@@ -26,15 +30,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicQuotePage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
-  // Fetch quote with only displayed columns
+  // Fetch quote with only displayed columns — restrict to non-draft statuses
   const { data: quote } = await supabase
     .from("quotes")
     .select(
       "id, business_id, customer_id, status, title, quote_number, subtotal_cents, tax_rate, tax_cents, discount_cents, total_cents, customer_notes, expires_at, viewed_at",
     )
     .eq("id", id)
+    .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
     .single();
 
   if (!quote) {
@@ -70,7 +75,7 @@ export default async function PublicQuotePage({ params }: Props) {
     notFound();
   }
 
-  // Mark as viewed (fire-and-forget)
+  // Mark as viewed (fire-and-forget, uses service role since anon SELECT is removed)
   if (!quote.viewed_at && (quote.status === "sent" || quote.status === "draft")) {
     supabase
       .from("quotes")
