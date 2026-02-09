@@ -546,6 +546,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      activity_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          business_id: string;
+          action_type: string;
+          resource_type: string;
+          resource_id: string;
+          description: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          business_id: string;
+          action_type: string;
+          resource_type: string;
+          resource_id: string;
+          description: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          business_id?: string;
+          action_type?: string;
+          resource_type?: string;
+          resource_id?: string;
+          description?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_logs_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -598,6 +649,7 @@ export type QuotePhoto = Tables["quote_photos"]["Row"];
 export type QuoteActivity = Tables["quote_activities"]["Row"];
 export type PricingCatalogItem = Tables["pricing_catalog"]["Row"];
 export type DefaultPricingData = Tables["default_pricing_data"]["Row"];
+export type ActivityLog = Tables["activity_logs"]["Row"];
 export type QuoteStatus = Database["public"]["Enums"]["quote_status"];
 export type LineItemType = Database["public"]["Enums"]["line_item_type"];
 export type UserRole = Database["public"]["Enums"]["user_role"];

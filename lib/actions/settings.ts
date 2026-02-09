@@ -2,6 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/audit/log";
 
 // ============================================================================
 // Types
@@ -97,6 +98,13 @@ export async function updateBusinessProfile(
       return { error: "Failed to update business profile." };
     }
 
+    logActivity({
+      action_type: "settings.updated",
+      resource_type: "business",
+      resource_id: businessId,
+      description: `Updated business profile for ${name}`,
+    }).catch(() => {});
+
     revalidateTag(`business-${businessId}`, { expire: 300 });
     return { success: true };
   } catch {
@@ -160,6 +168,13 @@ export async function uploadBusinessLogo(
       return { error: "Logo uploaded but failed to update profile." };
     }
 
+    logActivity({
+      action_type: "settings.logo_updated",
+      resource_type: "business",
+      resource_id: businessId,
+      description: "Updated business logo",
+    }).catch(() => {});
+
     revalidateTag(`business-${businessId}`, { expire: 300 });
     return { success: true, logoUrl: publicUrl };
   } catch {
@@ -194,6 +209,13 @@ export async function updateBrandingColor(
     if (error) {
       return { error: "Failed to update brand color." };
     }
+
+    logActivity({
+      action_type: "settings.branding_updated",
+      resource_type: "business",
+      resource_id: businessId,
+      description: `Updated brand color to ${color}`,
+    }).catch(() => {});
 
     revalidateTag(`business-${businessId}`, { expire: 300 });
     return { success: true };
@@ -247,6 +269,14 @@ export async function updateQuoteDefaults(
     if (error) {
       return { error: "Failed to update quote defaults." };
     }
+
+    logActivity({
+      action_type: "settings.defaults_updated",
+      resource_type: "business",
+      resource_id: businessId,
+      description: "Updated quote defaults",
+      metadata: { prefix, expiry_days: expiryDays, tax_rate: taxRate },
+    }).catch(() => {});
 
     revalidateTag(`business-${businessId}`, { expire: 300 });
     return { success: true };
@@ -307,6 +337,14 @@ export async function createCatalogItem(
       return { error: "Failed to create catalog item." };
     }
 
+    logActivity({
+      action_type: "catalog.created",
+      resource_type: "catalog_item",
+      resource_id: data.id,
+      description: `Created catalog item "${title}"`,
+      metadata: { unit_price_cents: priceCents, category },
+    }).catch(() => {});
+
     revalidateTag(`catalog-${businessId}`, { expire: 300 });
     return { success: true, itemId: data.id };
   } catch {
@@ -364,6 +402,13 @@ export async function updateCatalogItem(
       return { error: "Failed to update catalog item." };
     }
 
+    logActivity({
+      action_type: "catalog.updated",
+      resource_type: "catalog_item",
+      resource_id: id,
+      description: `Updated catalog item "${title}"`,
+    }).catch(() => {});
+
     revalidateTag(`catalog-${businessId}`, { expire: 300 });
     return { success: true };
   } catch {
@@ -398,6 +443,13 @@ export async function deleteCatalogItem(
     if (error) {
       return { error: "Failed to delete catalog item." };
     }
+
+    logActivity({
+      action_type: "catalog.deleted",
+      resource_type: "catalog_item",
+      resource_id: id,
+      description: `Deleted catalog item ${id}`,
+    }).catch(() => {});
 
     revalidateTag(`catalog-${businessId}`, { expire: 300 });
     return { success: true };

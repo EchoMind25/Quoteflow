@@ -27,6 +27,8 @@
     "@serwist/next": "9.5.5",
     "@supabase/ssr": "0.8.0",
     "@supabase/supabase-js": "2.95.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "@vercel/analytics": "^1.6.1",
     "assemblyai": "^4.23.0",
     "clsx": "2.1.1",

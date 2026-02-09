@@ -88,6 +88,11 @@ CREATE INDEX IF NOT EXISTS idx_quotes_approval_status
   ON quotes (business_id, approval_status)
   WHERE approval_status IN ('pending_review', 'changes_requested');
 
+-- PERF-007: Index for customer_id lookups (quote-by-customer queries)
+CREATE INDEX IF NOT EXISTS idx_quotes_customer_id
+  ON quotes (customer_id)
+  WHERE customer_id IS NOT NULL;
+
 -- ============================================================
 -- 3. Approval activity tracking (uses existing quote_activities)
 -- ============================================================
@@ -137,13 +142,29 @@ CREATE POLICY "team_invitations_update"
     )
   );
 
--- Anon users can read a single invitation by token (for accept flow)
-CREATE POLICY "team_invitations_accept_by_token"
-  ON team_invitations FOR SELECT
-  USING (
-    status = 'pending'
+-- SEC-007: Do NOT expose invitations via RLS to anon/all users.
+-- Instead, use a SECURITY DEFINER function to look up by token.
+-- This prevents enumeration of all pending invitations.
+CREATE OR REPLACE FUNCTION public.get_invitation_by_token(p_token text)
+RETURNS TABLE (
+  id uuid,
+  business_id uuid,
+  email text,
+  role user_role,
+  expires_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id, business_id, email, role, expires_at
+  FROM team_invitations
+  WHERE token = p_token
+    AND status = 'pending'
     AND expires_at > now()
-  );
+  LIMIT 1;
+$$;
+-- Usage in code: supabase.rpc('get_invitation_by_token', { p_token: token })
 ```
 
 ### 4.3 TypeScript Types
@@ -1700,7 +1721,7 @@ export async function updateBranding(
 // components/settings/branding-preview.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { generateBrandCSS, contrastForeground } from "@/lib/branding/theme";
 
 type BrandingPreviewProps = {
@@ -1724,50 +1745,104 @@ export function BrandingPreview({
     accent: accentColor ?? "",
   });
 
-  const cssOverrides = generateBrandCSS({
-    primaryColor: liveColors.primary,
-    secondaryColor: liveColors.secondary,
-    accentColor: liveColors.accent || undefined,
-    brandFont: "Inter",
-  });
+  // PERF-008: Memoize expensive CSS generation — only recalculate when colors change
+  const cssOverrides = useMemo(
+    () =>
+      generateBrandCSS({
+        primaryColor: liveColors.primary,
+        secondaryColor: liveColors.secondary,
+        accentColor: liveColors.accent || undefined,
+        brandFont: "Inter",
+      }),
+    [liveColors.primary, liveColors.secondary, liveColors.accent]
+  );
 
-  const fgOnPrimary = contrastForeground(liveColors.primary);
+  const fgOnPrimary = useMemo(
+    () => contrastForeground(liveColors.primary),
+    [liveColors.primary]
+  );
 
   return (
     <div className="space-y-6">
+      {/* A11Y-003: Text inputs alongside color pickers for keyboard/screen-reader access */}
       <div className="flex gap-4">
         <label className="space-y-1">
           <span className="text-sm font-medium">Primary</span>
-          <input
-            type="color"
-            value={liveColors.primary}
-            onChange={(e) =>
-              setLiveColors((c) => ({ ...c, primary: e.target.value }))
-            }
-            className="block h-10 w-16 cursor-pointer rounded border"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={liveColors.primary}
+              onChange={(e) =>
+                setLiveColors((c) => ({ ...c, primary: e.target.value }))
+              }
+              className="block h-10 w-16 cursor-pointer rounded border"
+              aria-label="Primary color picker"
+            />
+            <input
+              type="text"
+              value={liveColors.primary}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (/^#[0-9a-fA-F]{6}$/.test(v))
+                  setLiveColors((c) => ({ ...c, primary: v }));
+              }}
+              className="w-24 rounded border px-2 py-1 text-sm font-mono"
+              placeholder="#2563eb"
+              aria-label="Primary color hex value"
+            />
+          </div>
         </label>
         <label className="space-y-1">
           <span className="text-sm font-medium">Secondary</span>
-          <input
-            type="color"
-            value={liveColors.secondary}
-            onChange={(e) =>
-              setLiveColors((c) => ({ ...c, secondary: e.target.value }))
-            }
-            className="block h-10 w-16 cursor-pointer rounded border"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={liveColors.secondary}
+              onChange={(e) =>
+                setLiveColors((c) => ({ ...c, secondary: e.target.value }))
+              }
+              className="block h-10 w-16 cursor-pointer rounded border"
+              aria-label="Secondary color picker"
+            />
+            <input
+              type="text"
+              value={liveColors.secondary}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (/^#[0-9a-fA-F]{6}$/.test(v))
+                  setLiveColors((c) => ({ ...c, secondary: v }));
+              }}
+              className="w-24 rounded border px-2 py-1 text-sm font-mono"
+              placeholder="#1e40af"
+              aria-label="Secondary color hex value"
+            />
+          </div>
         </label>
         <label className="space-y-1">
           <span className="text-sm font-medium">Accent</span>
-          <input
-            type="color"
-            value={liveColors.accent || "#f59e0b"}
-            onChange={(e) =>
-              setLiveColors((c) => ({ ...c, accent: e.target.value }))
-            }
-            className="block h-10 w-16 cursor-pointer rounded border"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={liveColors.accent || "#f59e0b"}
+              onChange={(e) =>
+                setLiveColors((c) => ({ ...c, accent: e.target.value }))
+              }
+              className="block h-10 w-16 cursor-pointer rounded border"
+              aria-label="Accent color picker"
+            />
+            <input
+              type="text"
+              value={liveColors.accent || "#f59e0b"}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (/^#[0-9a-fA-F]{6}$/.test(v))
+                  setLiveColors((c) => ({ ...c, accent: v }));
+              }}
+              className="w-24 rounded border px-2 py-1 text-sm font-mono"
+              placeholder="#f59e0b"
+              aria-label="Accent color hex value"
+            />
+          </div>
         </label>
       </div>
 
@@ -2506,8 +2581,14 @@ export const INDUSTRY_TEMPLATES: DefaultTemplate[] = [
 
 import { z } from "zod";
 
+// SEC-011: Sanitize CSV fields to prevent formula injection (=, +, -, @, \t, \r)
+function sanitizeCsvField(value: string): string {
+  const dangerous = /^[=+\-@\t\r]/;
+  return dangerous.test(value) ? `'${value}` : value;
+}
+
 const csvRowSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, "Title is required").transform(sanitizeCsvField),
   description: z.string().optional().default(""),
   category: z.string().optional().default("custom"),
   unit: z.string().optional().default("ea"),
@@ -2516,8 +2597,10 @@ const csvRowSchema = z.object({
     const cleaned = v.replace(/[$,]/g, "").trim();
     const num = parseFloat(cleaned);
     if (isNaN(num)) throw new Error(`Invalid price: ${v}`);
-    // If price looks like dollars (has decimal or < 1000), convert to cents
-    return num < 1000 && cleaned.includes(".") ? Math.round(num * 100) : Math.round(num);
+    // BUG-004: Treat values with a decimal point as dollars, convert to cents.
+    // Values without decimals are assumed to already be in cents.
+    // This avoids ambiguity: "125.00" → 12500 cents, "12500" → 12500 cents.
+    return cleaned.includes(".") ? Math.round(num * 100) : Math.round(num);
   }),
   item_type: z
     .enum(["service", "material", "labor", "other"])
@@ -2991,13 +3074,16 @@ type MatchedItem = AILineItem & {
 
 /**
  * Match AI-generated line items against the business's service catalog.
- * Uses simple keyword matching — not ML-based — for speed and predictability.
+ * Uses keyword matching with pre-tokenized index for O(n+m) performance.
+ *
+ * PERF-002: Pre-tokenize catalog once, then use Set-based intersection
+ * for each AI item. This avoids O(n*m) nested loops for large catalogs.
  *
  * Strategy:
- * 1. Tokenize AI item title + description into keywords
- * 2. Score each catalog item by keyword overlap
- * 3. If best match score >= threshold, use catalog pricing
- * 4. Otherwise keep AI-suggested pricing
+ * 1. Pre-tokenize all catalog items into a token → items index
+ * 2. For each AI item, tokenize and look up candidate matches
+ * 3. Score candidates by Sørensen–Dice coefficient
+ * 4. If best match score >= threshold, use catalog pricing
  */
 export function matchCatalogItems(
   aiItems: AILineItem[],
@@ -3005,24 +3091,45 @@ export function matchCatalogItems(
 ): MatchedItem[] {
   const MATCH_THRESHOLD = 0.4; // 40% keyword overlap required
 
+  // Pre-tokenize catalog items and build token → item index
+  const catalogTokenSets = new Map<string, Set<string>>();
+  const catalogTokenIndex = new Map<string, CatalogItem[]>();
+
+  for (const item of catalog) {
+    const tokens = tokenize(
+      `${item.title} ${item.description ?? ""} ${item.tags.join(" ")}`,
+    );
+    catalogTokenSets.set(item.id, new Set(tokens));
+    for (const token of tokens) {
+      if (!catalogTokenIndex.has(token)) catalogTokenIndex.set(token, []);
+      catalogTokenIndex.get(token)!.push(item);
+    }
+  }
+
   return aiItems.map((aiItem) => {
     const aiTokens = tokenize(`${aiItem.title} ${aiItem.description}`);
+    const aiTokenSet = new Set(aiTokens);
+
+    // Find candidate catalog items via token index
+    const candidateScores = new Map<string, number>();
+    for (const token of aiTokenSet) {
+      const matches = catalogTokenIndex.get(token) ?? [];
+      for (const item of matches) {
+        candidateScores.set(item.id, (candidateScores.get(item.id) ?? 0) + 1);
+      }
+    }
 
     let bestMatch: CatalogItem | null = null;
     let bestScore = 0;
 
-    for (const catalogItem of catalog) {
-      const catalogTokens = tokenize(
-        `${catalogItem.title} ${catalogItem.description ?? ""} ${catalogItem.tags.join(" ")}`,
-      );
-
-      const intersection = aiTokens.filter((t) => catalogTokens.includes(t));
-      const score =
-        (2 * intersection.length) / (aiTokens.length + catalogTokens.length);
-
+    for (const [itemId, overlapCount] of candidateScores) {
+      const catalogTokens = catalogTokenSets.get(itemId);
+      if (!catalogTokens) continue;
+      // Sørensen–Dice coefficient
+      const score = (2 * overlapCount) / (aiTokenSet.size + catalogTokens.size);
       if (score > bestScore) {
         bestScore = score;
-        bestMatch = catalogItem;
+        bestMatch = catalog.find((c) => c.id === itemId) ?? null;
       }
     }
 
@@ -3031,7 +3138,7 @@ export function matchCatalogItems(
         ...aiItem,
         catalogItemId: bestMatch.id,
         catalogPrice: bestMatch.unitPriceCents,
-        unitPriceCents: bestMatch.unitPriceCents, // Use catalog price
+        unitPriceCents: bestMatch.unitPriceCents,
         unit: bestMatch.unit,
         priceSource: "catalog" as const,
       };
@@ -3077,6 +3184,8 @@ QuoteFlow enforces a strict data ownership model:
 | No data is shared between businesses | `get_my_business_id()` helper used in every RLS policy |
 | Customer data belongs to the business | Customer PII is never used for QuoteFlow marketing or analytics |
 | Photos and audio stay in business scope | Supabase Storage policies restrict access to `business_id` path prefix |
+
+> **PERF-009: RLS Performance Note.** The `get_my_business_id()` function is called in every RLS policy. It performs a subquery on `profiles` to get the current user's `business_id`. For optimal performance, ensure `profiles` has an index on `(id)` (primary key) and consider using `auth.jwt() -> 'app_metadata' ->> 'business_id'` as an alternative if business_id is stored in JWT claims, which avoids the subquery entirely.
 
 ### 7.2 Audit Log Schema
 
@@ -3174,19 +3283,17 @@ export async function logAuditEvent(params: {
     const ip = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
     const userAgent = headerStore.get("user-agent") ?? null;
 
-    // Fetch actor email for denormalization
+    // Fetch actor email for denormalization (SEC-005: store actual email, not name)
     const { data: actor } = await supabase
       .from("profiles")
-      .select("first_name, last_name")
+      .select("email")
       .eq("id", params.actorId)
       .single();
 
     await supabase.from("audit_log").insert({
       business_id: params.businessId,
       actor_id: params.actorId,
-      actor_email: actor
-        ? `${actor.first_name ?? ""} ${actor.last_name ?? ""}`.trim()
-        : null,
+      actor_email: actor?.email ?? null,
       action: params.action,
       resource_type: params.resourceType,
       resource_id: params.resourceId ?? null,
@@ -3252,7 +3359,11 @@ export async function exportAllData(
   const format = (formData.get("format") as string) ?? "json";
   const businessId = profile.business_id;
 
-  // Fetch all business data in parallel
+  // PERF-001: Fetch all business data in parallel.
+  // NOTE: For businesses with very large datasets (>10K quotes), consider
+  // implementing cursor-based pagination with a streaming response (ReadableStream)
+  // instead of loading all data into memory. For MVP, this approach works for
+  // typical business sizes (<5K quotes).
   const [
     businessResult,
     customersResult,
@@ -3392,6 +3503,9 @@ export async function exportAllData(
 
 /**
  * Convert an array of objects to CSV string.
+ * BUG-003: Nested objects/arrays are serialized as JSON strings.
+ * For deeply nested data (e.g., line_items on quotes), consider
+ * exporting as separate CSV files or using the JSON export format.
  */
 function toCsv(rows: Record<string, unknown>[]): string {
   if (rows.length === 0) return "";
@@ -3478,6 +3592,18 @@ export async function deleteAllData(
     return { error: "Only business owners can delete data" };
   }
 
+  // SEC-009: Re-authenticate with password before destructive operation
+  const password = formData.get("password") as string;
+  if (password) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password,
+    });
+    if (signInError) {
+      return { error: "Invalid password. Data deletion requires re-authentication." };
+    }
+  }
+
   const confirmationCode = formData.get("confirmation_code") as string;
 
   // Fetch business slug for confirmation
@@ -3491,10 +3617,10 @@ export async function deleteAllData(
 
   const expectedCode = `DELETE-${business.slug}`;
 
-  if (!confirmationCode) {
+  if (!confirmationCode || !password) {
     return {
       confirmationRequired: true,
-      error: `To permanently delete all data, type "${expectedCode}" to confirm.`,
+      error: `To permanently delete all data, enter your password and type "${expectedCode}" to confirm.`,
     };
   }
 
@@ -3504,16 +3630,25 @@ export async function deleteAllData(
 
   const businessId = profile.business_id;
 
-  // Step 1: Delete storage files
+  // Step 1: Delete storage files (SEC-014: paginate to handle >1000 files)
   const buckets = ["quote-photos", "quote-audio", "business-logos"];
   for (const bucket of buckets) {
-    const { data: files } = await supabase.storage
-      .from(bucket)
-      .list(businessId, { limit: 1000 });
+    let hasMore = true;
+    while (hasMore) {
+      const { data: files } = await supabase.storage
+        .from(bucket)
+        .list(businessId, { limit: 1000 });
 
-    if (files && files.length > 0) {
+      if (!files || files.length === 0) {
+        hasMore = false;
+        break;
+      }
+
       const paths = files.map((f) => `${businessId}/${f.name}`);
       await supabase.storage.from(bucket).remove(paths);
+
+      // If we got fewer than 1000, we've reached the end
+      hasMore = files.length === 1000;
     }
   }
 
@@ -3891,12 +4026,29 @@ export async function createPaymentLink(
   _prevState: PaymentLinkState,
   formData: FormData,
 ): Promise<PaymentLinkState> {
+  const supabase = await createClient();
+
+  // SEC-008: Authenticate and verify billing permission
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return { error: "Not authenticated" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("business_id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.business_id) return { error: "No business found" };
+
+  // Only owners can create payment links (billing:manage permission)
+  if (profile.role !== "owner") {
+    return { error: "Only business owners can create payment links" };
+  }
+
   const quoteId = formData.get("quote_id") as string;
   if (!quoteId) return { error: "Quote ID required" };
 
-  const supabase = await createClient();
-
-  // Fetch quote with line items
+  // Fetch quote with line items — scoped to caller's business
   const { data: quote } = await supabase
     .from("quotes")
     .select(`
@@ -3905,6 +4057,7 @@ export async function createPaymentLink(
       quote_line_items(title, quantity, unit_price_cents)
     `)
     .eq("id", quoteId)
+    .eq("business_id", profile.business_id)
     .eq("status", "accepted")
     .single();
 
@@ -5173,6 +5326,7 @@ export function isTranscriptMeaningful(transcript: string): boolean {
 2. **Batch multiple photos**: Send all photos in a single Claude request rather than one per photo. Amortizes system prompt + few-shot overhead.
 3. **Cache catalog matches**: If the same equipment model appears frequently, cache the Claude analysis and use catalog pricing. Reduces repeat API calls.
 4. **Transcript pre-filtering**: Skip transcription if audio is < 3 seconds or below -40 dB (silence detection). Saves AssemblyAI costs on accidental recordings.
+5. **Prompt caching** (PERF-005): Use Anthropic's prompt caching for system prompts and few-shot examples. System prompts + examples (~2,000 tokens) are identical across all quotes for a given industry. With caching, subsequent requests use cached tokens at 90% discount ($0.30/M instead of $3/M input). Expected savings: ~60% on input token costs for repeat usage.
 
 ---
 
@@ -5268,7 +5422,7 @@ export type CachedPhoto = {
   id: string;
   blob: Blob;
   quote_id: string;
-  uploaded: boolean;
+  uploaded: number; // BUG-001: Use 0/1 instead of boolean for IndexedDB index compatibility
   original_filename?: string;
   mime_type?: string;
 };
@@ -5279,7 +5433,7 @@ export type CachedAudio = {
   quote_id: string;
   duration_seconds: number;
   mime_type: string;
-  uploaded: boolean;
+  uploaded: number; // BUG-001: Use 0/1 instead of boolean for IndexedDB index compatibility
 };
 
 export type CachedCustomer = {
@@ -5658,8 +5812,8 @@ async function uploadCachedPhotos(): Promise<void> {
           });
 
           if (response.ok) {
-            // Mark as uploaded
-            photo.uploaded = true;
+            // Mark as uploaded (1 = uploaded, for IndexedDB index)
+            photo.uploaded = 1;
             await db.put("photos_cache", photo);
 
             // Optionally: remove blob to free space
@@ -5694,7 +5848,7 @@ async function uploadCachedAudio(): Promise<void> {
       });
 
       if (response.ok) {
-        audio.uploaded = true;
+        audio.uploaded = 1; // 1 = uploaded, for IndexedDB index
         await db.put("audio_cache", audio);
       }
     } catch {
@@ -6045,7 +6199,8 @@ export function SyncStatus() {
     };
   }, []);
 
-  // Poll pending queue count
+  // PERF-003: Event-driven queue checking instead of constant 5s polling.
+  // Only poll when there are pending items; otherwise rely on sync events.
   useEffect(() => {
     const checkQueue = async () => {
       const count = await getQueueCount();
@@ -6055,10 +6210,23 @@ export function SyncStatus() {
       }
     };
 
+    // Check once on mount
     checkQueue();
-    const interval = setInterval(checkQueue, 5000);
-    return () => clearInterval(interval);
-  }, [state]);
+
+    // Only poll if there are pending items (10s interval, not 5s)
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (pendingCount > 0) {
+      interval = setInterval(checkQueue, 10000);
+    }
+
+    // Also re-check when coming back online
+    window.addEventListener("online", checkQueue);
+
+    return () => {
+      if (interval) clearInterval(interval);
+      window.removeEventListener("online", checkQueue);
+    };
+  }, [state, pendingCount]);
 
   // Listen for sync events
   useEffect(() => {

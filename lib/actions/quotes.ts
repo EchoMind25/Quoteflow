@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { sendQuoteEmail, sendAcceptanceNotification } from "@/lib/email/send-quote";
 import { sendQuoteSMS } from "@/lib/sms/send-quote";
 import { checkEmailRateLimit } from "@/lib/rate-limit";
+import { logActivity } from "@/lib/audit/log";
 
 // ============================================================================
 // Types
@@ -169,6 +170,19 @@ export async function sendQuote(
     if (updateError) {
       return { error: "Quote was delivered but status update failed." };
     }
+
+    // Audit log (fire-and-forget)
+    logActivity({
+      action_type: "quote.sent",
+      resource_type: "quote",
+      resource_id: quoteId,
+      description: `Sent quote #${quote.quote_number} via ${deliveryMethod}`,
+      metadata: {
+        customer_id: customer.id,
+        delivery_method: deliveryMethod,
+        total_cents: quote.total_cents,
+      },
+    }).catch(() => {});
 
     return { success: true, publicUrl };
   } catch (err) {

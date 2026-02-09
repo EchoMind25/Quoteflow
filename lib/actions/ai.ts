@@ -13,6 +13,7 @@ import {
 } from "@/lib/ai/gemini";
 import { generateSignedPhotoUrls } from "@/lib/ai/privacy";
 import { checkAIRateLimit } from "@/lib/rate-limit";
+import { logActivity } from "@/lib/audit/log";
 import type { IndustryType } from "@/types/database";
 
 // ============================================================================
@@ -41,6 +42,17 @@ export async function transcribeVoiceNote(
   formData: FormData,
 ): Promise<TranscribeState> {
   try {
+    // 0. Mandatory auth check
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: "Authentication required." };
+    }
+
     // 1. Extract inputs
     const audio = formData.get("audio") as File | null;
     const quoteId = formData.get("quote_id") as string | null;
@@ -70,7 +82,6 @@ export async function transcribeVoiceNote(
     let audioUrl: string | undefined;
 
     if (quoteId) {
-      const supabase = await createClient();
       const ext = audio.type.includes("webm") ? "webm" : "m4a";
       const storagePath = `quotes/${quoteId}/voice.${ext}`;
 
@@ -147,26 +158,33 @@ export async function generateQuoteFromAI(
   formData: FormData,
 ): Promise<GenerateQuoteState> {
   try {
-    // 0. Rate limit check
+    // 0. Mandatory auth + rate limit check
     const supabaseForAuth = await createClient();
     const {
       data: { user: authUser },
+      error: authError,
     } = await supabaseForAuth.auth.getUser();
-    if (authUser) {
-      const { data: profile } = await supabaseForAuth
-        .from("profiles")
-        .select("business_id")
-        .eq("id", authUser.id)
-        .single();
-      if (profile?.business_id) {
-        const limit = await checkAIRateLimit(profile.business_id);
-        if (!limit.allowed) {
-          const waitSec = Math.ceil(limit.resetMs / 1000);
-          return {
-            error: `Rate limit exceeded. Please wait ${waitSec} seconds before trying again.`,
-          };
-        }
-      }
+
+    if (authError || !authUser) {
+      return { error: "Authentication required." };
+    }
+
+    const { data: profile } = await supabaseForAuth
+      .from("profiles")
+      .select("business_id")
+      .eq("id", authUser.id)
+      .single();
+
+    if (!profile?.business_id) {
+      return { error: "No business associated with account." };
+    }
+
+    const limit = await checkAIRateLimit(profile.business_id);
+    if (!limit.allowed) {
+      const waitSec = Math.ceil(limit.resetMs / 1000);
+      return {
+        error: `Rate limit exceeded. Please wait ${waitSec} seconds before trying again.`,
+      };
     }
 
     // 1. Extract inputs
@@ -258,6 +276,14 @@ export async function generateQuoteFromAI(
           industry,
         });
 
+        logActivity({
+          action_type: "ai.quote_generated",
+          resource_type: "quote",
+          resource_id: profile.business_id,
+          description: `AI generated quote via Gemini+Claude (${industry})`,
+          metadata: { industry, photo_count: resolvedUrls.length, pipeline: "gemini+claude" },
+        }).catch(() => {});
+
         return {
           lineItems: result.lineItems,
           title: result.suggestedTitle,
@@ -280,7 +306,15 @@ export async function generateQuoteFromAI(
       industry,
     });
 
-    // 5. Return structured result
+    // 5. Audit log + return structured result
+    logActivity({
+      action_type: "ai.quote_generated",
+      resource_type: "quote",
+      resource_id: profile.business_id,
+      description: `AI generated quote via Claude Vision (${industry})`,
+      metadata: { industry, photo_count: resolvedUrls.length, pipeline: "claude-vision" },
+    }).catch(() => {});
+
     return {
       lineItems: result.lineItems,
       title: result.suggestedTitle,

@@ -31,7 +31,7 @@ QuoteFlow transforms job site assessments into accurate, professional quotes usi
 ### Core Value Propositions
 
 1. **90-Second Quote Generation:** Photo capture + voice → AI-generated quote → send to customer
-2. **Industry-Specific Pricing:** Pre-trained AI models for HVAC, plumbing, electrical (expandable)
+2. **Industry-Specific Pricing:** Pre-trained AI models for HVAC, plumbing, electrical, roofing, landscaping, and general (expandable)
 3. **Zero Vendor Lock-In:** Businesses own all data, export/delete anytime (GDPR/CCPA compliant)
 4. **True Offline Support:** Create quotes without internet via Background Sync API + IndexedDB
 5. **White-Label Ready:** Custom branding per business (logo, colors, PWA home screen icon)
@@ -140,8 +140,8 @@ QuoteFlow transforms job site assessments into accurate, professional quotes usi
 
 ### AI & Processing
 
-**Claude 3.5 Sonnet (Anthropic)**
-- **Model:** `claude-3-5-sonnet-20250514`
+**Claude Sonnet 4.5 (Anthropic)**
+- **Model:** `claude-sonnet-4-5-20250929`
 - **Use Case:** Vision analysis (photos) + text extraction (transcripts)
 - **Cost:** ~$3 per 1M tokens input, ~$15 per 1M output
 - **Performance:** 50 images/sec, 200K tokens/min
@@ -241,7 +241,7 @@ QuoteFlow transforms job site assessments into accurate, professional quotes usi
 │  ┌────────────────┐  │   │          │                 │
 │  │ Auth (JWT)     │  │   │          ▼                 │
 │  └────────────────┘  │   │  ┌──────────────────────┐  │
-│  ┌────────────────┐  │   │  │  Claude 3.5 Sonnet   │  │
+│  ┌────────────────┐  │   │  │  Claude Sonnet 4.5   │  │
 │  │ Storage (S3)   │  │   │  │  - Analyze photos    │  │
 │  │ - Photos       │  │   │  │  - Extract items     │  │
 │  │ - Voice files  │  │   │  │  - Suggest pricing   │  │
@@ -290,7 +290,7 @@ QuoteFlow transforms job site assessments into accurate, professional quotes usi
 
 import { useState } from 'react';
 import { Camera } from 'lucide-react';
-import { cachePhoto } from '@/lib/offline/db';
+import { cachePhoto } from '@/lib/db/indexed-db';
 
 export function PhotoCapture({ quoteId }: { quoteId: string }) {
   const [photos, setPhotos] = useState<File[]>([]);
@@ -331,7 +331,7 @@ async function compressImage(file: File): Promise<Blob> {
   const canvas = new OffscreenCanvas(1920, (1920 / img.width) * img.height);
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.convertToBlob({ type: 'image/webp', quality: 0.8 });
+  return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
 }
 ```
 
@@ -340,14 +340,23 @@ async function compressImage(file: File): Promise<Blob> {
 // components/voice-recorder.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic, Square } from 'lucide-react';
 
 export function VoiceRecorder({ onRecordingComplete }: { onRecordingComplete: (blob: Blob) => void }) {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  
+
+  // SEC-010: Clean up media tracks on unmount to release microphone
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current?.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream, {
@@ -386,19 +395,29 @@ export function VoiceRecorder({ onRecordingComplete }: { onRecordingComplete: (b
 }
 ```
 
-**AI Processing (Edge Route):**
+**AI Processing (Server Action — preferred; API route shown for reference):**
 ```typescript
 // app/api/ai/process-quote/route.ts
+// NOTE: Uses Node.js runtime (default) because AssemblyAI SDK requires node:http.
+// In the actual codebase, AI processing is done via Server Actions (lib/actions/ai.ts),
+// not API routes. This route is shown for architectural reference only.
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { AssemblyAI } from 'assemblyai';
-
-export const runtime = 'edge';
+import { createClient } from '@/lib/supabase/server';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const assemblyai = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY! });
 
 export async function POST(req: NextRequest) {
+  // SEC-004: Authentication check — AI routes must require auth
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { photo_urls, audio_url, service_category } = await req.json();
   
   // Step 1: Transcribe voice (if provided)
@@ -416,7 +435,7 @@ export async function POST(req: NextRequest) {
   
   // Step 3: Call Claude with photos + transcript
   const response = await anthropic.messages.create({
-    model: 'claude-3-5-sonnet-20250514',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 2000,
     system: systemPrompt,
     messages: [
@@ -563,8 +582,12 @@ export async function findOrCreateCustomer(address: {
   first_name?: string;
   last_name?: string;
 }) {
-  const supabase = createClient();
-  
+  const supabase = await createClient();
+
+  // SEC-012: Verify the caller is authenticated before accessing customer data
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('Not authenticated');
+
   // Try to find existing customer by address
   const { data: existing } = await supabase
     .from('customers')
@@ -703,17 +726,20 @@ export async function sendQuoteSMS(quote: Quote, customer: Customer, business: B
 
 ```typescript
 // app/public/quotes/[id]/page.tsx
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { AcceptQuoteButton } from './accept-button';
 
 export default async function PublicQuotePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const supabase = createClient();
-  
-  // Public query (no auth required, but check quote.id in URL)
+  const { id } = await params;
+  // Service role bypasses RLS. Quote access is validated by UUID secrecy.
+  // Using anon client here would fail because RLS policies require
+  // an authenticated user with a matching business_id.
+  const supabase = createServiceClient();
+
   const { data: quote } = await supabase
     .from('quotes')
     .select(`
@@ -722,7 +748,7 @@ export default async function PublicQuotePage({
       customer:customers(*),
       business:businesses(name, logo_url, primary_color)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
     
   if (!quote) return <div>Quote not found</div>;

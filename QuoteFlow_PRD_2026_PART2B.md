@@ -47,22 +47,23 @@ export function BottomNav() {
   const pathname = usePathname();
   
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-area-inset-bottom z-40">
+    <nav role="navigation" aria-label="Main navigation" className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-area-inset-bottom z-40">
       <div className="flex justify-around items-center h-16">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
-          
+
           return (
             <Link
               key={href}
               href={href}
+              aria-current={isActive ? 'page' : undefined}
               className={`flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] transition-colors ${
                 isActive
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-gray-600 dark:text-gray-400'
               }`}
             >
-              <Icon className="w-6 h-6" />
+              <Icon className="w-6 h-6" aria-hidden="true" />
               <span className="text-xs font-medium">{label}</span>
             </Link>
           );
@@ -142,12 +143,12 @@ export function SwipeableQuoteItem({ quote, onDelete }: {
   };
   
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden group">
       {/* Delete background */}
       <div className="absolute inset-0 bg-red-600 flex items-center justify-end pr-6">
-        <Trash2 className="w-6 h-6 text-white" />
+        <Trash2 className="w-6 h-6 text-white" aria-hidden="true" />
       </div>
-      
+
       {/* Swipeable content */}
       <div
         className="relative bg-white dark:bg-gray-800 transition-transform touch-pan-y"
@@ -156,13 +157,23 @@ export function SwipeableQuoteItem({ quote, onDelete }: {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-            {quote.title}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            ${(quote.total_cents / 100).toFixed(2)}
-          </p>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+              {quote.title}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              ${(quote.total_cents / 100).toFixed(2)}
+            </p>
+          </div>
+          {/* A11Y-002: Keyboard-accessible delete button */}
+          <button
+            onClick={() => onDelete(quote.id)}
+            className="opacity-0 group-focus-within:opacity-100 focus:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded"
+            aria-label={`Delete quote ${quote.title}`}
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -211,13 +222,16 @@ export function PullToRefresh({ onRefresh, children }: {
   };
   
   const handleTouchEnd = async () => {
-    if (pullDistance >= PULL_THRESHOLD) {
-      // Trigger refresh
-      await onRefresh();
+    try {
+      if (pullDistance >= PULL_THRESHOLD) {
+        // Trigger refresh
+        await onRefresh();
+      }
+    } finally {
+      // BUG-002: Always reset state, even if onRefresh() throws
+      setIsPulling(false);
+      setPullDistance(0);
     }
-    
-    setIsPulling(false);
-    setPullDistance(0);
   };
   
   return (
@@ -282,7 +296,7 @@ export const haptics = {
   
   error: () => {
     if ('vibrate' in navigator) {
-      navigator.vibrate([50, 50, 50]); // Pattern: long-gap-long
+      navigator.vibrate([50, 50, 50]); // Pattern: 3 short pulses (vibrate-pause-vibrate-pause-vibrate)
     }
   },
 };
@@ -324,7 +338,7 @@ CREATE POLICY "team_view_quotes" ON quotes
   FOR SELECT
   USING (
     business_id IN (
-      SELECT business_id FROM team_members WHERE user_id = auth.uid()
+      SELECT business_id FROM profiles WHERE id = auth.uid()
     )
   );
 
@@ -352,56 +366,55 @@ SELECT * FROM quotes WHERE business_id = 'my-business-id';
 
 ### API Rate Limiting
 
-**Implementation via Vercel Edge Middleware:**
+> **SEC-002: Architecture Note.** This project uses `proxy.ts` (NOT `middleware.ts`) per
+> Next.js 16 architecture. Rate limiting is implemented at two layers:
+
+**Layer 1: Per-Route API Rate Limiting (Upstash Redis)**
+
+Applied inside route handlers via a `withRateLimit()` wrapper function:
 
 ```typescript
-// middleware.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+// lib/ratelimit/api-ratelimit.ts
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
 const ratelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(100, '1 m'), // 100 requests per minute
+  limiter: Ratelimit.slidingWindow(100, "1 m"), // 100 requests per minute
   analytics: true,
 });
 
-export async function middleware(request: NextRequest) {
-  // Get user ID from auth
-  const userId = request.headers.get('x-user-id');
-  
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function checkRateLimit(userId: string): Promise<{
+  success: boolean;
+  limit: number;
+  remaining: number;
+  reset: number;
+}> {
+  try {
+    return await ratelimit.limit(userId);
+  } catch {
+    // Fail open if Redis is unavailable — log but don't block
+    // eslint-disable-next-line no-console
+    console.error("Rate limit check failed — Redis unavailable");
+    return { success: true, limit: 100, remaining: 100, reset: 0 };
   }
-  
-  // Check rate limit
-  const { success, limit, reset, remaining } = await ratelimit.limit(userId);
-  
-  if (!success) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded', reset },
-      {
-        status: 429,
-        headers: {
-          'X-RateLimit-Limit': limit.toString(),
-          'X-RateLimit-Remaining': remaining.toString(),
-          'X-RateLimit-Reset': reset.toString(),
-        },
-      }
-    );
-  }
-  
-  return NextResponse.next();
 }
+```
 
-export const config = {
-  matcher: '/api/:path*', // Apply to all API routes
-};
+**Layer 2: Per-Action Database Rate Limiting (Supabase Function)**
+
+Used in Server Actions for AI operations, photo uploads, and other expensive operations:
+
+```sql
+-- From migrations/0011_rate_limiting.sql + 0012_fix_rate_limiting.sql
+-- Function: check_rate_limit(p_key, p_max_tokens, p_window_seconds)
+-- Returns JSON with { allowed: boolean, remaining: number, reset_at: timestamp }
+-- Called within Server Actions before executing expensive operations
 ```
 
 ### Encryption (Data at Rest)
@@ -410,48 +423,8 @@ export const config = {
 
 **Application-Level Encryption (for sensitive fields):**
 
-```typescript
-// lib/crypto/encrypt.ts
-import crypto from 'crypto';
-
-const ALGORITHM = 'aes-256-gcm';
-const KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex'); // 32 bytes
-
-export function encrypt(text: string): string {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, KEY, iv);
-  
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  
-  const authTag = cipher.getAuthTag();
-  
-  // Return: iv:authTag:encrypted
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
-}
-
-export function decrypt(encryptedText: string): string {
-  const [ivHex, authTagHex, encrypted] = encryptedText.split(':');
-  
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  const decipher = crypto.createDecipheriv(ALGORITHM, KEY, iv);
-  
-  decipher.setAuthTag(authTag);
-  
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  
-  return decrypted;
-}
-
-// Usage: Encrypt API keys in integrations table
-const encrypted = encrypt(apiKey);
-await supabase
-  .from('integrations')
-  .update({ credentials_encrypted: encrypted })
-  .eq('id', integrationId);
-```
+> See **Part 2A, Section 10.6 (Data Encryption)** for the full `lib/crypto/encrypt.ts` implementation.
+> Uses AES-256-GCM with 12-byte IV (NIST recommended), hex encoding, and `iv:authTag:ciphertext` format.
 
 ### CSRF Protection (Built-in via Server Actions)
 
@@ -472,7 +445,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: Request) {
   const body = await request.text();
-  const sig = headers().get('stripe-signature')!;
+  const sig = (await headers()).get('stripe-signature')!;
   
   let event: Stripe.Event;
   
@@ -510,15 +483,15 @@ export async function logActivity({
   resource_type: string;
   resource_id: string;
   description: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }) {
   const supabase = createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
   const { data: member } = await supabase
-    .from('team_members')
+    .from('profiles')
     .select('id, business_id')
-    .eq('user_id', user!.id)
+    .eq('id', user!.id)
     .single();
     
   await supabase.from('activity_logs').insert({
@@ -700,7 +673,7 @@ Gross Margin: 75.6%
 - [ ] Configure environment variables (local + Vercel)
 
 **Week 2:**
-- [ ] Deploy `businesses`, `team_members`, `customers` tables
+- [ ] Deploy `businesses`, `profiles`, `customers` tables
 - [ ] Write RLS policies for all 3 tables
 - [ ] Test RLS policies with different user roles
 - [ ] Implement business creation flow (signup)
@@ -727,7 +700,7 @@ Gross Margin: 75.6%
 
 **Week 3:**
 - [ ] Implement photo capture component (mobile camera API)
-- [ ] Photo compression (resize to 1920px, WebP format)
+- [ ] Photo compression (resize to 1920px, JPEG 85% quality)
 - [ ] IndexedDB setup (quotes_cache, photos_cache)
 - [ ] Save photos to IndexedDB when offline
 - [ ] Voice recording component (MediaRecorder API)
@@ -763,21 +736,20 @@ Gross Margin: 75.6%
 
 **Week 5:**
 - [ ] AssemblyAI account setup + API key
-- [ ] Implement voice transcription Edge route
+- [ ] Implement voice transcription API route
 - [ ] Anthropic Claude account + API key
-- [ ] Implement photo analysis Edge route
+- [ ] Implement photo analysis API route
 - [ ] Write HVAC system prompt (detailed, tested)
 - [ ] Test Claude Vision on 20 real HVAC photos
 - [ ] Tune prompt for accuracy
 
 **Week 6:**
-- [ ] Implement full AI pipeline Edge route
+- [ ] Implement full AI pipeline API route
 - [ ] Combine transcription + vision results
 - [ ] Extract line items with pricing
 - [ ] Display AI suggestions in quote builder
 - [ ] Allow user to edit/approve AI suggestions
 - [ ] Calculate confidence scores
-- [ ] Deploy `voice_recordings` table
 - [ ] Test AI pipeline end-to-end
 
 **Deliverables:**
@@ -896,7 +868,7 @@ Gross Margin: 75.6%
 ```typescript
 // __tests__/actions/quotes.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { createQuote } from '@/app/actions/quotes';
+import { createQuote } from '@/lib/actions/quotes';
 
 describe('createQuote', () => {
   it('should create quote with valid data', async () => {
@@ -1084,14 +1056,14 @@ supabase link --project-ref your-project-ref
 supabase db push
 
 # Generate types
-supabase gen types typescript --project-id your-project-ref > lib/database.types.ts
+supabase gen types typescript --project-id your-project-ref > types/database.ts
 ```
 
 **Enable RLS on all tables:**
 ```sql
 -- In Supabase SQL Editor
 ALTER TABLE businesses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 -- ... (all tables)
 ```
 
@@ -1178,7 +1150,7 @@ quoteflow/
 │   │   ├── login/
 │   │   ├── signup/
 │   │   └── layout.tsx
-│   ├── (dashboard)/
+│   ├── app/                          # Authenticated app shell
 │   │   ├── dashboard/
 │   │   ├── quotes/
 │   │   │   ├── page.tsx
@@ -1192,46 +1164,61 @@ quoteflow/
 │   │       └── [id]/page.tsx
 │   ├── api/
 │   │   ├── ai/
-│   │   │   ├── process-quote/route.ts (Edge)
-│   │   │   └── transcribe/route.ts (Edge)
+│   │   │   ├── process-quote/route.ts (Node.js)
+│   │   │   └── transcribe/route.ts (Node.js)
 │   │   ├── upload/
 │   │   │   └── photo/route.ts (Node.js)
 │   │   ├── sync/
-│   │   │   └── offline-queue/route.ts (Edge)
+│   │   │   └── offline-queue/route.ts (Node.js)
 │   │   └── webhooks/
-│   │       └── stripe/route.ts (Edge)
-│   ├── actions/
-│   │   ├── quotes.ts
-│   │   ├── customers.ts
-│   │   ├── team.ts
-│   │   └── branding.ts
+│   │       └── stripe/route.ts (Node.js)
 │   ├── manifest.ts
 │   └── sw.ts
 ├── components/
 │   ├── ui/
+│   ├── auth/
+│   ├── dashboard/
 │   ├── quotes/
 │   ├── customers/
 │   └── layout/
 │       └── bottom-nav.tsx
 ├── lib/
+│   ├── actions/                      # Server actions
+│   │   ├── ai.ts
+│   │   └── quotes.ts
 │   ├── supabase/
 │   │   ├── client.ts
 │   │   ├── server.ts
-│   │   └── database.types.ts
+│   │   └── proxy.ts
 │   ├── ai/
-│   │   ├── claude.ts
-│   │   └── assemblyai.ts
-│   ├── offline/
-│   │   └── db.ts (IndexedDB)
+│   │   ├── vision.ts
+│   │   ├── gemini.ts
+│   │   └── prompts/
+│   │       └── quote-analysis.ts
+│   ├── db/
+│   │   └── indexed-db.ts            # IndexedDB v3
+│   ├── sync/
+│   │   ├── offline-sync.ts
+│   │   └── optimistic-quote.ts
+│   ├── audit/
+│   │   └── log.ts
+│   ├── crypto/
+│   │   └── encrypt.ts
+│   ├── ratelimit/
+│   │   └── api-ratelimit.ts
 │   ├── email/
 │   │   └── send-quote.ts
 │   ├── sms/
 │   │   └── send-quote.ts
+│   ├── media/
+│   │   └── compress-image.ts
 │   └── utils/
 │       ├── haptics.ts
 │       └── currency.ts
 ├── emails/
 │   └── quote-email.tsx
+├── types/
+│   └── database.ts                   # Supabase generated types
 ├── supabase/
 │   ├── migrations/
 │   │   ├── 20260208000001_initial_schema.sql
@@ -1245,10 +1232,12 @@ quoteflow/
 │   └── components/
 ├── e2e/
 │   └── quote-flow.spec.ts
+├── proxy.ts                          # Request proxy (replaces middleware.ts)
 ├── .env.local
-├── next.config.mjs
+├── next.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
+├── tsconfig.sw.json                  # Service worker tsconfig
 ├── package.json
 └── README.md
 ```
@@ -1345,7 +1334,7 @@ NODE_ENV=development
 This document covers:
 ✅ Complete technical architecture (Next.js 16 + React 19 + PWA 2.0)  
 ✅ Full database schema (13 tables with RLS + triggers)  
-✅ API implementation (Server Actions + Edge Routes)  
+✅ API implementation (Server Actions + API Routes)  
 ✅ AI pipeline (Claude + AssemblyAI)  
 ✅ Offline-first architecture (IndexedDB + Background Sync)  
 ✅ Mobile-first UI patterns (gestures, haptics, bottom nav)  

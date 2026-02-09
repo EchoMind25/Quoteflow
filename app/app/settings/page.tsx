@@ -4,6 +4,7 @@ import {
   FileText,
   Package,
   Bell,
+  ClipboardList,
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
@@ -92,6 +93,12 @@ export default async function SettingsPage() {
           icon={Bell}
           label="Notifications"
           description="Email and push preferences"
+        />
+        <SettingsLink
+          href="/app/settings/activity"
+          icon={ClipboardList}
+          label="Activity Log"
+          description="Audit trail of all business actions"
         />
       </div>
 

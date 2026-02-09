@@ -29,7 +29,7 @@ export interface PhotoCacheItem {
   id: string;
   blob: Blob;
   quote_id: string;
-  uploaded: boolean;
+  uploaded: number; // 0 = not uploaded, 1 = uploaded (matches IndexedDB index type)
 }
 
 export interface AudioCacheItem {
@@ -38,7 +38,7 @@ export interface AudioCacheItem {
   quote_id: string;
   duration_seconds: number;
   mime_type: string;
-  uploaded: boolean;
+  uploaded: number; // 0 = not uploaded, 1 = uploaded (matches IndexedDB index type)
 }
 
 export interface CustomerCacheItem {
@@ -251,7 +251,7 @@ export async function cachePhoto(
     id,
     blob,
     quote_id: quoteId,
-    uploaded: false,
+    uploaded: 0,
   });
   return id;
 }
@@ -272,16 +272,14 @@ export async function getPhotosByQuote(
 
 export async function getUnuploadedPhotos(): Promise<PhotoCacheItem[]> {
   const db = await getDB();
-  // IDB boolean index: false = not uploaded
-  const all = await db.getAll("photos_cache");
-  return all.filter((p) => !p.uploaded);
+  return db.getAllFromIndex("photos_cache", "by-uploaded", 0);
 }
 
 export async function markPhotoUploaded(id: string): Promise<void> {
   const db = await getDB();
   const photo = await db.get("photos_cache", id);
   if (photo) {
-    photo.uploaded = true;
+    photo.uploaded = 1;
     await db.put("photos_cache", photo);
   }
 }
@@ -352,7 +350,7 @@ export async function cacheAudio(
     quote_id: quoteId,
     duration_seconds: durationSeconds,
     mime_type: mimeType,
-    uploaded: false,
+    uploaded: 0,
   });
   return id;
 }
@@ -373,15 +371,14 @@ export async function getAudioByQuote(
 
 export async function getUnuploadedAudio(): Promise<AudioCacheItem[]> {
   const db = await getDB();
-  const all = await db.getAll("audio_cache");
-  return all.filter((a) => !a.uploaded);
+  return db.getAllFromIndex("audio_cache", "by-uploaded", 0);
 }
 
 export async function markAudioUploaded(id: string): Promise<void> {
   const db = await getDB();
   const audio = await db.get("audio_cache", id);
   if (audio) {
-    audio.uploaded = true;
+    audio.uploaded = 1;
     await db.put("audio_cache", audio);
   }
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { CustomerInsert } from "@/types/database";
+import { logActivity } from "@/lib/audit/log";
 
 // ============================================================================
 // Types
@@ -165,6 +166,16 @@ export async function createCustomer(
       return { error: "Failed to create customer." };
     }
 
+    // Audit log (fire-and-forget)
+    const customerName = [firstName, lastName].filter(Boolean).join(" ") || email || "Unknown";
+    logActivity({
+      action_type: "customer.created",
+      resource_type: "customer",
+      resource_id: customer.id,
+      description: `Created customer ${customerName}`,
+      metadata: { email, phone },
+    }).catch(() => {});
+
     return { success: true, customerId: customer.id };
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -226,6 +237,15 @@ export async function updateCustomer(
       }
       return { error: "Failed to update customer." };
     }
+
+    // Audit log (fire-and-forget)
+    logActivity({
+      action_type: "customer.updated",
+      resource_type: "customer",
+      resource_id: customerId,
+      description: `Updated customer ${customerId}`,
+      metadata: { updated_fields: Object.keys(updates) },
+    }).catch(() => {});
 
     return { success: true };
   } catch (err) {
