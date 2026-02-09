@@ -35,6 +35,14 @@ const config: Config = {
           900: "#1e3a8a",
           950: "#172554",
         },
+        navy: {
+          DEFAULT: "#0a1628",
+          light: "#111d32",
+        },
+        accent: {
+          DEFAULT: "#00d4c4",
+          dark: "#00b3a5",
+        },
       },
       screens: {
         xs: "375px",

@@ -39,6 +39,7 @@
   /* Disable pull-to-refresh for PWA feel */
   html {
     overscroll-behavior: none;
+    scroll-behavior: smooth;
   }
 }
 
