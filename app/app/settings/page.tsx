@@ -5,6 +5,7 @@ import {
   Package,
   Bell,
   ClipboardList,
+  Users,
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
@@ -85,6 +86,13 @@ export default async function SettingsPage() {
           icon={Package}
           label="Service Catalog"
           description="Manage pricing for common services"
+        />
+
+        <SettingsLink
+          href="/app/settings/team"
+          icon={Users}
+          label="Team"
+          description="Invite members, manage roles"
         />
 
         <SectionHeader>Account</SectionHeader>

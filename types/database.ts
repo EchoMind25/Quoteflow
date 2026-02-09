@@ -597,6 +597,101 @@ export type Database = {
           },
         ];
       };
+      team_invitations: {
+        Row: {
+          id: string;
+          business_id: string;
+          email: string;
+          role: Database["public"]["Enums"]["user_role"];
+          invited_by: string;
+          invitation_token: string;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          email: string;
+          role?: Database["public"]["Enums"]["user_role"];
+          invited_by: string;
+          invitation_token: string;
+          expires_at: string;
+          accepted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          email?: string;
+          role?: Database["public"]["Enums"]["user_role"];
+          invited_by?: string;
+          invitation_token?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "team_invitations_invited_by_fkey";
+            columns: ["invited_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      approval_workflows: {
+        Row: {
+          id: string;
+          business_id: string;
+          created_at: string;
+          updated_at: string;
+          workflow_type: string;
+          approval_threshold_cents: number | null;
+          requires_admin_approval: boolean;
+          requires_owner_approval: boolean;
+          is_active: boolean;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          created_at?: string;
+          updated_at?: string;
+          workflow_type?: string;
+          approval_threshold_cents?: number | null;
+          requires_admin_approval?: boolean;
+          requires_owner_approval?: boolean;
+          is_active?: boolean;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          created_at?: string;
+          updated_at?: string;
+          workflow_type?: string;
+          approval_threshold_cents?: number | null;
+          requires_admin_approval?: boolean;
+          requires_owner_approval?: boolean;
+          is_active?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approval_workflows_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: true;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -650,6 +745,8 @@ export type QuoteActivity = Tables["quote_activities"]["Row"];
 export type PricingCatalogItem = Tables["pricing_catalog"]["Row"];
 export type DefaultPricingData = Tables["default_pricing_data"]["Row"];
 export type ActivityLog = Tables["activity_logs"]["Row"];
+export type TeamInvitation = Tables["team_invitations"]["Row"];
+export type ApprovalWorkflow = Tables["approval_workflows"]["Row"];
 export type QuoteStatus = Database["public"]["Enums"]["quote_status"];
 export type LineItemType = Database["public"]["Enums"]["line_item_type"];
 export type UserRole = Database["public"]["Enums"]["user_role"];
