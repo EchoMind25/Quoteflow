@@ -117,7 +117,7 @@ export function captureError(
   // Server-side logging
   if (typeof window === "undefined") {
     // eslint-disable-next-line no-console
-    console.error(`[QuoteFlow] ${category}:`, error);
+    console.error(`[Quotestream] ${category}:`, error);
   }
 
   return { category, message };

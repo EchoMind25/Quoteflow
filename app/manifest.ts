@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "QuoteFlow",
-    short_name: "QuoteFlow",
+    name: "Quotestream",
+    short_name: "Quotestream",
     description:
       "AI-powered quoting platform for service businesses",
     start_url: "/",

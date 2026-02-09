@@ -110,7 +110,7 @@ export function SyncStatus({
     };
   }, [refreshCount, triggerSync]);
 
-  // ---- Listen to quoteflow-sync CustomEvents ----
+  // ---- Listen to quotestream-sync CustomEvents ----
   useEffect(() => {
     function handleSyncEvent(e: Event) {
       const detail = (e as CustomEvent).detail as {
@@ -143,9 +143,9 @@ export function SyncStatus({
       }
     }
 
-    window.addEventListener("quoteflow-sync", handleSyncEvent);
+    window.addEventListener("quotestream-sync", handleSyncEvent);
     return () =>
-      window.removeEventListener("quoteflow-sync", handleSyncEvent);
+      window.removeEventListener("quotestream-sync", handleSyncEvent);
   }, [refreshCount, onConflicts]);
 
   // ---- Listen to SW postMessage ----

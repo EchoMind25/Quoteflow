@@ -1,4 +1,4 @@
-# QuoteFlow - Product Requirements Document (2026)
+# Quotestream - Product Requirements Document (2026)
 **Version:** 2.0  
 **Last Updated:** February 8, 2026  
 **Product Owner:** Braxton | Bedrock AI  
@@ -9,7 +9,7 @@
 
 ## Document Purpose & Scope
 
-This PRD serves as the complete technical and product specification for QuoteFlow, a privacy-first AI-powered quoting platform built with 2026 technology standards. It is optimized for execution by Claude Opus 4.6 and development teams familiar with Next.js 16, React 19, and modern PWA patterns.
+This PRD serves as the complete technical and product specification for Quotestream, a privacy-first AI-powered quoting platform built with 2026 technology standards. It is optimized for execution by Claude Opus 4.6 and development teams familiar with Next.js 16, React 19, and modern PWA patterns.
 
 **Document Completeness:**
 ✅ All technical decisions documented with rationale  
@@ -26,7 +26,7 @@ This PRD serves as the complete technical and product specification for QuoteFlo
 
 ## Executive Summary
 
-QuoteFlow transforms job site assessments into accurate, professional quotes using multi-modal AI (vision + voice). Built as a PWA 2.0 application on Next.js 16, it delivers native-app performance while ensuring complete data privacy and ownership for service businesses.
+Quotestream transforms job site assessments into accurate, professional quotes using multi-modal AI (vision + voice). Built as a PWA 2.0 application on Next.js 16, it delivers native-app performance while ensuring complete data privacy and ownership for service businesses.
 
 ### Core Value Propositions
 
@@ -39,7 +39,7 @@ QuoteFlow transforms job site assessments into accurate, professional quotes usi
 ### Technical Differentiators (2026)
 
 - **PWA 2.0 Architecture:** Vercel Edge Runtime + Background Sync + IndexedDB = offline-first
-- **Privacy-First Design:** Supabase Row-Level Security prevents QuoteFlow from accessing customer data
+- **Privacy-First Design:** Supabase Row-Level Security prevents Quotestream from accessing customer data
 - **Mobile-First UX:** Bottom navigation, gesture controls, haptic feedback, native font rendering
 - **AI Pipeline:** AssemblyAI (voice → text) → Claude Vision (photos) → Structured extraction
 - **Next.js 16 Benefits:** Turbopack 40-60% faster builds, React Server Components reduce bundle size
@@ -473,7 +473,7 @@ async function getPromptForCategory(category: string): Promise<string> {
 ### 2. Industry-Specific Pricing Intelligence
 
 **Pricing Data Sources:**
-1. **Default Pricing (QuoteFlow curated):** Stored in `default_pricing_data` table
+1. **Default Pricing (Quotestream curated):** Stored in `default_pricing_data` table
 2. **Business Overrides:** Stored in `pricing_catalog` table per business
 3. **AI Suggestions:** Claude recommends based on photos + market data
 
@@ -625,17 +625,18 @@ export async function findOrCreateCustomer(address: {
 
 ```typescript
 // lib/email/send-quote.ts
-import { Resend } from 'resend';
+import { getTransport } from "@/lib/email/smtp";
+import { render } from '@react-email/components';
 import { QuoteEmail } from '@/emails/quote-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transport = getTransport();
 
 export async function sendQuoteEmail(quote: Quote, customer: Customer, business: Business) {
-  await resend.emails.send({
-    from: `${business.name} <quotes@quoteflow.app>`,
+  await transport.sendMail({
+    from: `${business.name} <quotes@quotestream.app>`,
     to: customer.email,
     subject: `Quote #${quote.quote_number} from ${business.name}`,
-    react: QuoteEmail({ quote, customer, business }),
+    html: render(QuoteEmail({ quote, customer, business })),
   });
 }
 ```
@@ -645,7 +646,7 @@ export async function sendQuoteEmail(quote: Quote, customer: Customer, business:
 import { Html, Button, Section, Text } from '@react-email/components';
 
 export function QuoteEmail({ quote, customer, business }) {
-  const acceptUrl = `https://quoteflow.app/public/quotes/${quote.id}/accept`;
+  const acceptUrl = `https://quotestream.app/public/quotes/${quote.id}/accept`;
   
   return (
     <Html>
@@ -712,7 +713,7 @@ const client = twilio(
 );
 
 export async function sendQuoteSMS(quote: Quote, customer: Customer, business: Business) {
-  const viewUrl = `https://quoteflow.app/public/quotes/${quote.id}`;
+  const viewUrl = `https://quotestream.app/public/quotes/${quote.id}`;
   
   await client.messages.create({
     from: process.env.TWILIO_PHONE_NUMBER,

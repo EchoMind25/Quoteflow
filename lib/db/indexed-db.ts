@@ -47,7 +47,7 @@ export interface CustomerCacheItem {
   last_synced: number;
 }
 
-interface QuoteFlowDB extends DBSchema {
+interface QuotestreamDB extends DBSchema {
   offline_queue: {
     key: string;
     value: OfflineQueueItem;
@@ -88,15 +88,15 @@ interface QuoteFlowDB extends DBSchema {
 // Database init (singleton)
 // ============================================================================
 
-const DB_NAME = "quoteflow";
+const DB_NAME = "quotestream";
 const DB_VERSION = 3;
 const MAX_RETRIES = 5;
 
-let dbPromise: Promise<IDBPDatabase<QuoteFlowDB>> | null = null;
+let dbPromise: Promise<IDBPDatabase<QuotestreamDB>> | null = null;
 
-export function getDB(): Promise<IDBPDatabase<QuoteFlowDB>> {
+export function getDB(): Promise<IDBPDatabase<QuotestreamDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<QuoteFlowDB>(DB_NAME, DB_VERSION, {
+    dbPromise = openDB<QuotestreamDB>(DB_NAME, DB_VERSION, {
       upgrade(db, oldVersion) {
         // Drop old v1 stores if upgrading
         if (oldVersion < 2) {

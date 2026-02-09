@@ -2,7 +2,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign in | QuoteFlow",
+  title: "Sign in | Quotestream",
 };
 
 export default function LoginPage() {

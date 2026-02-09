@@ -1,4 +1,4 @@
-# QuoteFlow
+# Quotestream
 
 Privacy-first AI-powered quoting platform for service businesses (HVAC, plumbing, electrical, roofing, landscaping).
 
@@ -14,7 +14,7 @@ You need accounts with the following services:
 | [Anthropic](https://console.anthropic.com) | AI quote generation (Claude) | Yes |
 | [AssemblyAI](https://www.assemblyai.com) | Voice transcription | Yes |
 | [Vercel](https://vercel.com) | Hosting & deployment | Yes (production) |
-| [Resend](https://resend.com) | Email delivery | Yes (quote sending) |
+| [Resend](https://resend.com) | Email delivery (SMTP) | Yes (quote sending) |
 | [Twilio](https://www.twilio.com) | SMS delivery | Optional |
 | [Stripe](https://stripe.com) | Subscription billing | Optional |
 | [Upstash](https://upstash.com) | Redis rate limiting | Optional |
@@ -26,8 +26,8 @@ You need accounts with the following services:
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-org/quoteflow.git
-cd quoteflow
+git clone https://github.com/your-org/quotestream.git
+cd quotestream
 npm ci
 ```
 

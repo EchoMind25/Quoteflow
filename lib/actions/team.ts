@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { logActivity } from "@/lib/audit/log";
-import { Resend } from "resend";
+import { getTransport } from "@/lib/email/smtp";
 import type { UserRole } from "@/types/database";
 
 // ============================================================================
@@ -47,19 +47,6 @@ async function getTeamContext(): Promise<{
   }
 
   return { userId: user.id, businessId: profile.business_id, role: profile.role };
-}
-
-let resend: Resend | null = null;
-
-function getResend(): Resend {
-  if (!resend) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-    resend = new Resend(apiKey);
-  }
-  return resend;
 }
 
 // ============================================================================
@@ -177,15 +164,16 @@ export async function inviteTeamMember(
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
 
     try {
-      const client = getResend();
-      await client.emails.send({
-        from: "QuoteFlow <invites@quoteflow.app>",
+      const transport = getTransport();
+      const fromAddress = process.env.SMTP_FROM ?? "Quotestream <noreply@quotestream.app>";
+      await transport.sendMail({
+        from: fromAddress,
         to: email,
-        subject: `You've been invited to join ${business?.name ?? "a business"} on QuoteFlow`,
+        subject: `You've been invited to join ${business?.name ?? "a business"} on Quotestream`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
             <h2 style="color: #1a1a1a;">Team Invitation</h2>
-            <p>You've been invited to join <strong>${business?.name ?? "a business"}</strong> as a <strong>${role}</strong> on QuoteFlow.</p>
+            <p>You've been invited to join <strong>${business?.name ?? "a business"}</strong> as a <strong>${role}</strong> on Quotestream.</p>
             <p style="margin: 24px 0;">
               <a href="${inviteUrl}" style="background-color: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
                 Accept Invitation

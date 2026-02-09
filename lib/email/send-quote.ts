@@ -1,6 +1,7 @@
-import { Resend } from "resend";
+import { renderToStaticMarkup } from "react-dom/server";
 import { formatCents } from "@/lib/utils";
 import { QuoteEmail } from "@/emails/quote-email";
+import { getTransport } from "@/lib/email/smtp";
 import type {
   Quote,
   QuoteLineItem,
@@ -42,23 +43,6 @@ export type SendQuoteEmailResult = {
 };
 
 // ============================================================================
-// Client singleton
-// ============================================================================
-
-let resend: Resend | null = null;
-
-function getResend(): Resend {
-  if (!resend) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-    resend = new Resend(apiKey);
-  }
-  return resend;
-}
-
-// ============================================================================
 // Send quote email
 // ============================================================================
 
@@ -76,14 +60,11 @@ export async function sendQuoteEmail(
     .join(" ") || "there";
 
   try {
-    const client = getResend();
+    const transport = getTransport();
+    const fromAddress = process.env.SMTP_FROM ?? `${business.name} <noreply@quotestream.app>`;
 
-    const { data, error } = await client.emails.send({
-      from: `${business.name} <quotes@quoteflow.app>`,
-      replyTo: business.email ?? undefined,
-      to: customer.email,
-      subject: `Quote #${quote.quote_number}: ${quote.title}`,
-      react: QuoteEmail({
+    const html = renderToStaticMarkup(
+      QuoteEmail({
         businessName: business.name,
         businessLogoUrl: business.logo_url,
         primaryColor: business.primary_color,
@@ -104,13 +85,17 @@ export async function sendQuoteEmail(
         expiresAt: quote.expires_at,
         publicUrl,
       }),
+    );
+
+    const info = await transport.sendMail({
+      from: fromAddress,
+      replyTo: business.email ?? undefined,
+      to: customer.email,
+      subject: `Quote #${quote.quote_number}: ${quote.title}`,
+      html,
     });
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, emailId: data?.id };
+    return { success: true, emailId: info.messageId };
   } catch (err) {
     return {
       success: false,
@@ -130,10 +115,11 @@ export async function sendAcceptanceNotification(input: {
   businessName: string;
 }): Promise<void> {
   try {
-    const client = getResend();
+    const transport = getTransport();
+    const fromAddress = process.env.SMTP_FROM ?? "Quotestream <noreply@quotestream.app>";
 
-    await client.emails.send({
-      from: `QuoteFlow <notifications@quoteflow.app>`,
+    await transport.sendMail({
+      from: fromAddress,
       to: input.businessEmail,
       subject: `Quote #${input.quote.quote_number} accepted by ${input.customerName}`,
       html: `

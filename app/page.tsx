@@ -13,22 +13,22 @@ import { Footer } from "@/components/marketing/footer";
 
 export const metadata: Metadata = {
   title:
-    "QuoteFlow | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
+    "Quotestream | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
   description:
-    "Generate professional quotes in 90 seconds with AI. QuoteFlow helps service businesses quote faster, more accurately, and with complete data privacy. Start your free trial today.",
+    "Generate professional quotes in 90 seconds with AI. Quotestream helps service businesses quote faster, more accurately, and with complete data privacy. Start your free trial today.",
   openGraph: {
     title:
-      "QuoteFlow | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
+      "Quotestream | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
     description:
-      "Generate professional quotes in 90 seconds with AI. QuoteFlow helps service businesses quote faster, more accurately, and with complete data privacy.",
-    url: "https://quoteflow.app",
-    siteName: "QuoteFlow",
+      "Generate professional quotes in 90 seconds with AI. Quotestream helps service businesses quote faster, more accurately, and with complete data privacy.",
+    url: "https://quotestream.app",
+    siteName: "Quotestream",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title:
-      "QuoteFlow | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
+      "Quotestream | AI-Powered Quoting for HVAC, Plumbing & Electrical Businesses",
     description:
       "Generate professional quotes in 90 seconds with AI. Start your free trial today.",
   },
@@ -38,7 +38,7 @@ export default function HomePage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "QuoteFlow",
+    name: "Quotestream",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web, iOS, Android (PWA)",
     description:

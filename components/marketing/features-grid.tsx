@@ -23,7 +23,7 @@ const features = [
   {
     icon: WifiOff,
     title: "Create Quotes Without Internet",
-    body: "No signal at the job site? No problem. QuoteFlow syncs when you reconnect.",
+    body: "No signal at the job site? No problem. Quotestream syncs when you reconnect.",
   },
   {
     icon: Palette,

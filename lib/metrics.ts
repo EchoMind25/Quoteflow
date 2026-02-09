@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 // ============================================================================
-// Custom performance metrics for QuoteFlow
+// Custom performance metrics for Quotestream
 // ============================================================================
 
 /**

@@ -4,7 +4,7 @@ import { Footer } from "@/components/marketing/footer";
 import { PricingTiers } from "@/components/pricing/pricing-tiers";
 
 export const metadata: Metadata = {
-  title: "Pricing | QuoteFlow",
+  title: "Pricing | Quotestream",
   description:
     "Simple, transparent pricing for service professionals. No hidden fees, no usage limits.",
 };
@@ -23,7 +23,7 @@ const faqs = [
   {
     question: "Do you really mean unlimited quotes?",
     answer:
-      "Yes. Create as many quotes as you need, no caps, no extra charges. We built QuoteFlow to get out of your way, not nickel-and-dime you.",
+      "Yes. Create as many quotes as you need, no caps, no extra charges. We built Quotestream to get out of your way, not nickel-and-dime you.",
   },
   {
     question: "How does the Team plan work?",

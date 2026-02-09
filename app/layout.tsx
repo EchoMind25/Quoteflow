@@ -3,14 +3,14 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "QuoteFlow",
+  title: "Quotestream",
   description:
     "AI-powered quoting platform for service businesses. Capture photos, record voice notes, and generate professional quotes in seconds.",
-  applicationName: "QuoteFlow",
+  applicationName: "Quotestream",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "QuoteFlow",
+    title: "Quotestream",
   },
   formatDetection: {
     telephone: false,

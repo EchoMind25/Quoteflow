@@ -10,7 +10,7 @@ export default function AuthLayout({
       <div className="w-full max-w-sm">
         <Link href="/" className="mb-8 block text-center">
           <h1 className="text-2xl font-bold tracking-tight text-brand-600">
-            QuoteFlow
+            Quotestream
           </h1>
         </Link>
         {children}

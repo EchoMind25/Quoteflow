@@ -54,7 +54,7 @@ type SyncEventDetail = {
 // Background Sync Registration
 // ============================================================================
 
-const SYNC_TAG = "quoteflow-offline-sync";
+const SYNC_TAG = "quotestream-offline-sync";
 
 export async function requestBackgroundSync(): Promise<boolean> {
   if (
@@ -451,7 +451,7 @@ async function refreshCaches(): Promise<void> {
 function emitSyncEvent(detail: SyncEventDetail): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
-      new CustomEvent("quoteflow-sync", { detail }),
+      new CustomEvent("quotestream-sync", { detail }),
     );
   }
 }

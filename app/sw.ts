@@ -15,7 +15,7 @@ declare const self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: (PrecacheEntry | string)[];
 };
 
-const SYNC_TAG = "quoteflow-offline-sync";
+const SYNC_TAG = "quotestream-offline-sync";
 
 // ============================================================================
 // Serwist instance — precaching + runtime caching
@@ -28,7 +28,7 @@ const serwist = new Serwist({
   navigationPreload: true,
   runtimeCaching: [
     // -----------------------------------------------------------------------
-    // QuoteFlow API responses — NetworkFirst with 5 min cache
+    // Quotestream API responses — NetworkFirst with 5 min cache
     // -----------------------------------------------------------------------
     {
       matcher: ({ sameOrigin, request, url }) =>
@@ -149,7 +149,7 @@ async function handleBackgroundSync(): Promise<void> {
   // (the idb library works in Service Workers) and send them in bulk.
   try {
     const { openDB } = await import("idb");
-    const db = await openDB("quoteflow", 3);
+    const db = await openDB("quotestream", 3);
     const items: unknown[] = await db.getAllFromIndex(
       "offline_queue",
       "by-timestamp",
@@ -241,7 +241,7 @@ async function handleBackgroundSync(): Promise<void> {
     // Show notification on sync complete
     const count = result.processed_ids?.length ?? 0;
     if (count > 0) {
-      await self.registration.showNotification("QuoteFlow", {
+      await self.registration.showNotification("Quotestream", {
         body: `${count} item${count !== 1 ? "s" : ""} synced successfully`,
         tag: "sync-complete",
       });
@@ -261,7 +261,7 @@ async function handleBackgroundSync(): Promise<void> {
   } catch (error) {
     // Log and re-throw — the browser will retry the sync event
     // eslint-disable-next-line no-console
-    console.error("[QuoteFlow SW] Background sync failed:", error);
+    console.error("[Quotestream SW] Background sync failed:", error);
     throw error;
   }
 }

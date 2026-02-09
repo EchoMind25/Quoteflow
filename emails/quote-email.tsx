@@ -475,7 +475,7 @@ export function QuoteEmail({
                         margin: 0,
                       }}
                     >
-                      Sent by {businessName} via QuoteFlow
+                      Sent by {businessName} via Quotestream
                     </p>
                   </td>
                 </tr>

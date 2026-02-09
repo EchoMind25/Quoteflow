@@ -291,7 +291,7 @@ export function PublicQuoteView({
 
         {/* Powered by */}
         <p className="mt-4 pb-8 text-center text-xs text-gray-300">
-          Powered by QuoteFlow
+          Powered by Quotestream
         </p>
       </div>
     </div>

@@ -31,7 +31,7 @@ export function PrivacyCallout() {
           Your Data, Your Control—Always
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-gray-600">
-          Unlike other quoting tools, QuoteFlow is built privacy-first. We
+          Unlike other quoting tools, Quotestream is built privacy-first. We
           can&apos;t access your customer data even if we wanted to.
         </p>
 

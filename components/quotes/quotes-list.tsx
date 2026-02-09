@@ -66,11 +66,11 @@ export function QuotesList({ serverQuotes }: QuotesListProps) {
       }
     }
 
-    window.addEventListener("quoteflow-sync", handleSyncEvent);
+    window.addEventListener("quotestream-sync", handleSyncEvent);
     navigator.serviceWorker?.addEventListener("message", handleSWMessage);
 
     return () => {
-      window.removeEventListener("quoteflow-sync", handleSyncEvent);
+      window.removeEventListener("quotestream-sync", handleSyncEvent);
       navigator.serviceWorker?.removeEventListener(
         "message",
         handleSWMessage,

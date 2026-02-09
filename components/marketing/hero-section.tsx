@@ -63,7 +63,7 @@ export function HeroSection() {
                   <div className="mt-3 flex items-center gap-2">
                     <div className="h-6 w-6 rounded-md bg-accent/20" />
                     <span className="text-xs font-semibold text-accent">
-                      QuoteFlow
+                      Quotestream
                     </span>
                   </div>
 

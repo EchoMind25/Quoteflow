@@ -2,7 +2,7 @@ import { SignupForm } from "@/components/auth/signup-form";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Create account | QuoteFlow",
+  title: "Create account | Quotestream",
 };
 
 export default function SignupPage() {

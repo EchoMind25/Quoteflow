@@ -1,5 +1,5 @@
 -- ============================================================================
--- QuoteFlow: Initial Database Schema
+-- Quotestream: Initial Database Schema
 -- Migration: 0001_initial_schema.sql
 -- Generated: 2026-02-08
 --

@@ -41,7 +41,7 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="flex flex-col leading-none">
           <span className="text-lg font-bold text-accent lg:text-xl">
-            QuoteFlow
+            Quotestream
           </span>
           <span className="text-[10px] text-gray-400">by Bedrock AI</span>
         </Link>

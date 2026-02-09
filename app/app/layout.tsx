@@ -8,8 +8,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | QuoteFlow",
-    default: "Dashboard | QuoteFlow",
+    template: "%s | Quotestream",
+    default: "Dashboard | Quotestream",
   },
 };
 
@@ -34,7 +34,7 @@ export default async function AppLayout({
     .single();
 
   const businessName =
-    (profile?.business as { name: string } | null)?.name ?? "QuoteFlow";
+    (profile?.business as { name: string } | null)?.name ?? "Quotestream";
   const userName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
     user.email?.split("@")[0] ||

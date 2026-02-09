@@ -1,7 +1,7 @@
-# QuoteFlow - Product Requirements Document Part 2A (2026)
+# Quotestream - Product Requirements Document Part 2A (2026)
 **Version:** 2.0
 **Last Updated:** February 8, 2026
-**Continuation of:** QuoteFlow_PRD_2026_PART1.md
+**Continuation of:** Quotestream_PRD_2026_PART1.md
 
 ---
 
@@ -21,7 +21,7 @@
 
 ### 4.1 Overview
 
-QuoteFlow supports multi-user businesses where an owner invites team members with role-based access. The approval workflow ensures that quotes created by junior technicians are reviewed before reaching customers.
+Quotestream supports multi-user businesses where an owner invites team members with role-based access. The approval workflow ensures that quotes created by junior technicians are reviewed before reaching customers.
 
 **Existing foundation:** The `profiles` table already has a `role` column (`owner | admin | technician | viewer`) and a `business_id` FK. The `get_my_business_id()` helper and RLS policies already scope data per-business. This section adds a dedicated invitation system and a quote approval state machine on top of that foundation.
 
@@ -434,13 +434,13 @@ export async function inviteTeamMember(
     .single();
 
   // Send invitation email
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://quoteflow.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://quotestream.app";
   const acceptUrl = `${appUrl}/invite/${invitation.token}`;
 
   const { sendTeamInviteEmail } = await import("@/lib/email/send-team-invite");
   await sendTeamInviteEmail({
     to: email,
-    businessName: business?.name ?? "A QuoteFlow business",
+    businessName: business?.name ?? "A Quotestream business",
     inviterName: `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "A team member",
     role,
     acceptUrl,
@@ -1160,7 +1160,7 @@ export function TeamInviteEmail({
     <Html>
       <Head />
       <Preview>
-        {inviterName} invited you to join {businessName} on QuoteFlow
+        {inviterName} invited you to join {businessName} on Quotestream
       </Preview>
       <Body style={{ backgroundColor: "#f6f9fc", fontFamily: "sans-serif" }}>
         <Container
@@ -1176,7 +1176,7 @@ export function TeamInviteEmail({
             You&apos;re invited to join {businessName}
           </Heading>
           <Text style={{ color: "#6b7280", fontSize: "16px" }}>
-            {inviterName} has invited you to their team on QuoteFlow as:
+            {inviterName} has invited you to their team on Quotestream as:
           </Text>
           <Section
             style={{
@@ -1223,10 +1223,11 @@ export function TeamInviteEmail({
 
 ```typescript
 // lib/email/send-team-invite.ts
-import { Resend } from "resend";
+import { getTransport } from "@/lib/email/smtp";
+import { render } from "@react-email/components";
 import { TeamInviteEmail } from "@/emails/team-invite-email";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transport = getTransport();
 
 export async function sendTeamInviteEmail(params: {
   to: string;
@@ -1235,16 +1236,16 @@ export async function sendTeamInviteEmail(params: {
   role: string;
   acceptUrl: string;
 }): Promise<void> {
-  await resend.emails.send({
-    from: "QuoteFlow <team@quoteflow.app>",
+  await transport.sendMail({
+    from: "Quotestream <team@quotestream.app>",
     to: params.to,
-    subject: `Join ${params.businessName} on QuoteFlow`,
-    react: TeamInviteEmail({
+    subject: `Join ${params.businessName} on Quotestream`,
+    html: render(TeamInviteEmail({
       businessName: params.businessName,
       inviterName: params.inviterName,
       role: params.role,
       acceptUrl: params.acceptUrl,
-    }),
+    })),
   });
 }
 ```
@@ -1255,7 +1256,7 @@ export async function sendTeamInviteEmail(params: {
 
 ### 5.1 Overview
 
-Every QuoteFlow business can customize the customer-facing experience: logo, colors, email templates, and the PWA home screen. The branding system uses CSS custom properties at runtime so no rebuild is required when colors change.
+Every Quotestream business can customize the customer-facing experience: logo, colors, email templates, and the PWA home screen. The branding system uses CSS custom properties at runtime so no rebuild is required when colors change.
 
 **Existing foundation:** The `businesses` table already has `logo_url` (Supabase Storage path) and `primary_color` (hex). The public quote page and email templates already reference these. This section extends branding to a full white-label system with secondary color, custom domain support, and dynamic PWA manifest generation.
 
@@ -1290,7 +1291,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_businesses_custom_domain
 COMMENT ON COLUMN businesses.secondary_color IS 'Used for secondary buttons, links, and accents';
 COMMENT ON COLUMN businesses.logo_dark_url IS 'Logo variant for dark backgrounds (email headers, dark mode)';
 COMMENT ON COLUMN businesses.favicon_url IS 'Small icon for browser tab, PWA home screen fallback';
-COMMENT ON COLUMN businesses.custom_domain IS 'e.g. quotes.acmehvac.com — verified via CNAME to quoteflow.app';
+COMMENT ON COLUMN businesses.custom_domain IS 'e.g. quotes.acmehvac.com — verified via CNAME to quotestream.app';
 COMMENT ON COLUMN businesses.brand_font IS 'Google Font used in public pages and emails';
 ```
 
@@ -1417,8 +1418,8 @@ import { cookies } from "next/headers";
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   // Default manifest for unauthenticated users
   const defaults: MetadataRoute.Manifest = {
-    name: "QuoteFlow",
-    short_name: "QuoteFlow",
+    name: "Quotestream",
+    short_name: "Quotestream",
     description: "AI-powered quoting for service businesses",
     start_url: "/app",
     display: "standalone",
@@ -1576,7 +1577,7 @@ export async function getEmailBranding(
   const primary = business?.primary_color ?? "#2563eb";
 
   return {
-    businessName: business?.name ?? "QuoteFlow",
+    businessName: business?.name ?? "Quotestream",
     primaryColor: primary,
     secondaryColor: business?.secondary_color ?? "#1e40af",
     logoUrl: business?.logo_url ?? null,
@@ -1887,7 +1888,7 @@ export function BrandingPreview({
 Custom domains follow a CNAME-based verification flow:
 
 1. Business owner enters their desired domain (e.g., `quotes.acmehvac.com`) in Settings > Branding.
-2. QuoteFlow displays a CNAME record they must add: `quotes.acmehvac.com CNAME cname.quoteflow.app`.
+2. Quotestream displays a CNAME record they must add: `quotes.acmehvac.com CNAME cname.quotestream.app`.
 3. A server-side verification check (on-demand) resolves DNS via `dns.resolveCname()`.
 4. Once verified, `custom_domain_verified = true` and the proxy routes requests from that domain to the correct business's public pages.
 
@@ -1976,12 +1977,12 @@ export async function verifyCustomDomain(
   try {
     const cnames = await dns.resolveCname(business.custom_domain);
     const isValid = cnames.some(
-      (cname) => cname === "cname.quoteflow.app" || cname === "cname.quoteflow.app.",
+      (cname) => cname === "cname.quotestream.app" || cname === "cname.quotestream.app.",
     );
 
     if (!isValid) {
       return {
-        error: `CNAME not found. Add a CNAME record: ${business.custom_domain} → cname.quoteflow.app`,
+        error: `CNAME not found. Add a CNAME record: ${business.custom_domain} → cname.quotestream.app`,
         verified: false,
       };
     }
@@ -3175,14 +3176,14 @@ const STOP_WORDS = new Set([
 
 ### 7.1 Data Ownership Model
 
-QuoteFlow enforces a strict data ownership model:
+Quotestream enforces a strict data ownership model:
 
 | Principle | Implementation |
 |-----------|---------------|
 | Businesses own 100% of their data | All tables have `business_id` FK; RLS policies scope every query |
-| QuoteFlow cannot read business data | RLS is enforced even for `service_role` operations; the only exceptions are aggregate analytics (count-only, no PII) |
+| Quotestream cannot read business data | RLS is enforced even for `service_role` operations; the only exceptions are aggregate analytics (count-only, no PII) |
 | No data is shared between businesses | `get_my_business_id()` helper used in every RLS policy |
-| Customer data belongs to the business | Customer PII is never used for QuoteFlow marketing or analytics |
+| Customer data belongs to the business | Customer PII is never used for Quotestream marketing or analytics |
 | Photos and audio stay in business scope | Supabase Storage policies restrict access to `business_id` path prefix |
 
 > **PERF-009: RLS Performance Note.** The `get_my_business_id()` function is called in every RLS policy. It performs a subquery on `profiles` to get the current user's `business_id`. For optimal performance, ensure `profiles` has an index on `(id)` (primary key) and consider using `auth.jwt() -> 'app_metadata' ->> 'business_id'` as an alternative if business_id is stored in JWT claims, which avoids the subquery entirely.
@@ -3824,7 +3825,7 @@ export default async function PrivacySettingsPage() {
 
 ### 8.1 Overview
 
-QuoteFlow integrates with three external services:
+Quotestream integrates with three external services:
 
 1. **Stripe** (Phase 1) — Accept payments when a customer accepts a quote
 2. **ServiceTitan** (Phase 2) — Sync quotes as jobs for large HVAC/plumbing shops
@@ -4074,7 +4075,7 @@ export async function createPaymentLink(
     return { error: "Payments are not enabled for this business" };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://quoteflow.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://quotestream.app";
 
   try {
     // Build line items for Stripe Checkout
@@ -4405,7 +4406,7 @@ export async function exchangeServiceTitanCode(
 }
 
 /**
- * Push a QuoteFlow quote to ServiceTitan as a new job.
+ * Push a Quotestream quote to ServiceTitan as a new job.
  */
 export async function syncToServiceTitan(
   businessId: string,
@@ -4549,7 +4550,7 @@ const QB_API_BASE = "https://quickbooks.api.intuit.com/v3";
 const QB_AUTH_BASE = "https://oauth.platform.intuit.com/oauth2/v1";
 
 /**
- * Push an accepted QuoteFlow quote to QuickBooks as an Invoice.
+ * Push an accepted Quotestream quote to QuickBooks as an Invoice.
  */
 export async function syncToQuickBooks(
   businessId: string,
@@ -4620,9 +4621,9 @@ export async function syncToQuickBooks(
         `${customer?.first_name ?? ""} ${customer?.last_name ?? ""}`.trim(),
     },
     CustomerMemo: {
-      value: `QuoteFlow Quote #${quote.quote_number}`,
+      value: `Quotestream Quote #${quote.quote_number}`,
     },
-    PrivateNote: `Synced from QuoteFlow quote ${quote.id}`,
+    PrivateNote: `Synced from Quotestream quote ${quote.id}`,
   };
 
   const response = await fetch(
@@ -5334,7 +5335,7 @@ export function isTranscriptMeaningful(transcript: string): boolean {
 
 ### 10.1 Overview
 
-QuoteFlow operates in environments with poor connectivity: crawl spaces, attics, basements, rooftops, rural properties. The offline-first architecture ensures technicians can create quotes, take photos, and record voice notes with zero connectivity, then sync seamlessly when back online.
+Quotestream operates in environments with poor connectivity: crawl spaces, attics, basements, rooftops, rural properties. The offline-first architecture ensures technicians can create quotes, take photos, and record voice notes with zero connectivity, then sync seamlessly when back online.
 
 **Existing foundation:** The codebase already has a complete offline system (see `lib/db/indexed-db.ts`, `lib/sync/offline-sync.ts`, `lib/sync/optimistic-quote.ts`, `app/sw.ts`). This section serves as the comprehensive reference for the full architecture, documenting every store, sync strategy, conflict resolution rule, and testing procedure.
 
@@ -5347,10 +5348,10 @@ The client-side database uses the `idb` library with incremental version migrati
 
 import { openDB, type IDBPDatabase } from "idb";
 
-const DB_NAME = "quoteflow";
+const DB_NAME = "quotestream";
 const DB_VERSION = 3;
 
-export interface QuoteFlowDB {
+export interface QuotestreamDB {
   offline_queue: {
     key: string;
     value: OfflineQueueItem;
@@ -5444,12 +5445,12 @@ export type CachedCustomer = {
 
 // ---- Database initialization ----
 
-let dbInstance: IDBPDatabase<QuoteFlowDB> | null = null;
+let dbInstance: IDBPDatabase<QuotestreamDB> | null = null;
 
-export async function getDB(): Promise<IDBPDatabase<QuoteFlowDB>> {
+export async function getDB(): Promise<IDBPDatabase<QuotestreamDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<QuoteFlowDB>(DB_NAME, DB_VERSION, {
+  dbInstance = await openDB<QuotestreamDB>(DB_NAME, DB_VERSION, {
     upgrade(db, oldVersion) {
       // Version 1: offline_queue + quotes_cache + photos_cache
       if (oldVersion < 1) {
@@ -5959,7 +5960,7 @@ function dispatchSyncEvent(
 ): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
-      new CustomEvent("quoteflow-sync", {
+      new CustomEvent("quotestream-sync", {
         detail: { type, ...detail },
       }),
     );
@@ -5990,7 +5991,7 @@ const serwist = new Serwist({
 // ---- Background Sync ----
 
 self.addEventListener("sync", (event: SyncEvent) => {
-  if (event.tag === "quoteflow-offline-sync") {
+  if (event.tag === "quotestream-offline-sync") {
     event.waitUntil(handleBackgroundSync());
   }
 });
@@ -6070,7 +6071,7 @@ async function handleBackgroundSync(): Promise<void> {
 
   // Show notification if app is in background
   if (clients.length === 0 && result.processed_ids.length > 0) {
-    await self.registration.showNotification("QuoteFlow Sync Complete", {
+    await self.registration.showNotification("Quotestream Sync Complete", {
       body: `${result.processed_ids.length} item(s) synced successfully.`,
       icon: "/icons/icon-192.png",
       badge: "/icons/badge-72.png",
@@ -6085,7 +6086,7 @@ async function handleBackgroundSync(): Promise<void> {
  */
 function openIndexedDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("quoteflow", 3);
+    const request = indexedDB.open("quotestream", 3);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     // If upgrade is needed, the client-side code handles it on next open
@@ -6260,8 +6261,8 @@ export function SyncStatus() {
       }
     };
 
-    window.addEventListener("quoteflow-sync", handleSyncEvent);
-    return () => window.removeEventListener("quoteflow-sync", handleSyncEvent);
+    window.addEventListener("quotestream-sync", handleSyncEvent);
+    return () => window.removeEventListener("quotestream-sync", handleSyncEvent);
   }, []);
 
   // Auto-sync when coming back online
@@ -6434,7 +6435,7 @@ export async function compressImage(
 
 ### Setup
 1. Open Chrome DevTools → Application → Service Workers → verify SW is registered
-2. Open DevTools → Application → IndexedDB → verify "quoteflow" DB with all 5 stores
+2. Open DevTools → Application → IndexedDB → verify "quotestream" DB with all 5 stores
 3. Ensure you're logged in and have at least 1 customer in the system
 
 ### Test 1: Create Quote Offline

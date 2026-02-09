@@ -26,7 +26,7 @@ export function Footer() {
           {/* Branding */}
           <div className="col-span-2 sm:col-span-1">
             <div className="flex flex-col leading-none">
-              <span className="text-lg font-bold text-accent">QuoteFlow</span>
+              <span className="text-lg font-bold text-accent">Quotestream</span>
               <span className="mt-0.5 text-[10px] text-gray-500">
                 by Bedrock AI
               </span>

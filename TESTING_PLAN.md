@@ -1,4 +1,4 @@
-# QuoteFlow Production Testing Plan
+# Quotestream Production Testing Plan
 
 ## Table of Contents
 
@@ -25,7 +25,11 @@ Set all of these in Vercel Project Settings > Environment Variables:
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase Dashboard > Settings > API (keep secret!) |
 | `ANTHROPIC_API_KEY` | Yes | console.anthropic.com > API Keys |
 | `ASSEMBLYAI_API_KEY` | Yes | assemblyai.com > Dashboard |
-| `RESEND_API_KEY` | Yes | resend.com > API Keys |
+| `SMTP_HOST` | Yes | `smtp.resend.com` (Resend SMTP relay) |
+| `SMTP_PORT` | Yes | `465` (TLS) |
+| `SMTP_USER` | Yes | `resend` |
+| `SMTP_PASS` | Yes | resend.com > API Keys (use API key as password) |
+| `SMTP_FROM` | Yes | Default sender address (e.g. `Quotestream <noreply@quotestream.app>`) |
 | `TWILIO_ACCOUNT_SID` | Yes | twilio.com > Console |
 | `TWILIO_AUTH_TOKEN` | Yes | twilio.com > Console |
 | `TWILIO_PHONE_NUMBER` | Yes | twilio.com > Phone Numbers (E.164 format) |
@@ -37,7 +41,7 @@ Set all of these in Vercel Project Settings > Environment Variables:
 | `SENTRY_DSN` | Yes | sentry.io > Project Settings > Client Keys |
 | `SENTRY_AUTH_TOKEN` | Yes | sentry.io > Settings > Auth Tokens |
 | `NEXT_PUBLIC_SENTRY_DSN` | Yes | Same DSN as `SENTRY_DSN` |
-| `NEXT_PUBLIC_APP_URL` | Yes | Your production URL (e.g. `https://quoteflow.app`) |
+| `NEXT_PUBLIC_APP_URL` | Yes | Your production URL (e.g. `https://quotestream.app`) |
 
 \* Stripe and VAPID are optional for initial launch; required for payments and push notifications.
 
@@ -72,8 +76,8 @@ Each query should show "Index Scan" not "Seq Scan".
 
 ```bash
 git add -A
-git commit -m "Initial QuoteFlow deployment"
-git remote add origin https://github.com/YOUR_USERNAME/quoteflow.git
+git commit -m "Initial Quotestream deployment"
+git remote add origin https://github.com/YOUR_USERNAME/quotestream.git
 git push -u origin main
 ```
 
@@ -109,7 +113,7 @@ Click "Deploy". Vercel will:
 ### Step 6: Custom Domain (Optional)
 
 1. Vercel Dashboard > Project > Settings > Domains
-2. Add your domain (e.g. `quoteflow.app`)
+2. Add your domain (e.g. `quotestream.app`)
 3. Configure DNS (CNAME to `cname.vercel-dns.com`)
 4. Update `NEXT_PUBLIC_APP_URL` env var to match
 5. Update Supabase Auth redirect URL to new domain

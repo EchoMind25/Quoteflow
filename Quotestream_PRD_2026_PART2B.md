@@ -1,7 +1,7 @@
-# QuoteFlow - Product Requirements Document Part 2B (2026)
+# Quotestream - Product Requirements Document Part 2B (2026)
 **Version:** 2.0  
 **Last Updated:** February 8, 2026  
-**Continuation of:** QuoteFlow_PRD_2026_PART1.md + Part 2A
+**Continuation of:** Quotestream_PRD_2026_PART1.md + Part 2A
 
 ---
 
@@ -345,7 +345,7 @@ CREATE POLICY "team_view_quotes" ON quotes
 -- What this prevents:
 -- 1. User A (Business X) cannot query quotes from Business Y
 -- 2. Even if app code tries to bypass (SQL injection, bug), database blocks it
--- 3. QuoteFlow admins cannot access business data (no service_role bypass)
+-- 3. Quotestream admins cannot access business data (no service_role bypass)
 ```
 
 **Testing RLS Policies:**
@@ -912,7 +912,7 @@ npm run test
 **Example:**
 
 ```typescript
-// e2e/quote-flow.spec.ts
+// e2e/quotestream.spec.ts
 import { test, expect } from '@playwright/test';
 
 test('create and send quote', async ({ page }) => {
@@ -962,7 +962,7 @@ test('offline quote creation', async ({ page, context }) => {
   const idbQuotes = await page.evaluate(() => {
     return window.indexedDB.databases();
   });
-  expect(idbQuotes).toContain('quoteflow-db');
+  expect(idbQuotes).toContain('quotestream-db');
   
   // Go online
   await context.setOffline(false);
@@ -1096,8 +1096,12 @@ ANTHROPIC_API_KEY=sk-ant-...
 # AssemblyAI
 ASSEMBLYAI_API_KEY=...
 
-# Resend
-RESEND_API_KEY=re_...
+# SMTP (Email)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=465
+SMTP_USER=resend
+SMTP_PASS=re_...
+SMTP_FROM=Quotestream <noreply@quotestream.app>
 
 # Twilio
 TWILIO_ACCOUNT_SID=AC...
@@ -1117,7 +1121,7 @@ UPSTASH_REDIS_TOKEN=...
 ENCRYPTION_KEY=... # 64-char hex string (32 bytes)
 
 # App
-NEXT_PUBLIC_APP_URL=https://quoteflow.app
+NEXT_PUBLIC_APP_URL=https://quotestream.app
 ```
 
 ---
@@ -1144,7 +1148,7 @@ npx @sentry/wizard@latest -i nextjs
 ### File Structure
 
 ```
-quoteflow/
+quotestream/
 ├── app/
 │   ├── (auth)/
 │   │   ├── login/
@@ -1231,7 +1235,7 @@ quoteflow/
 │   ├── actions/
 │   └── components/
 ├── e2e/
-│   └── quote-flow.spec.ts
+│   └── quotestream.spec.ts
 ├── proxy.ts                          # Request proxy (replaces middleware.ts)
 ├── .env.local
 ├── next.config.ts
@@ -1300,8 +1304,12 @@ ANTHROPIC_API_KEY=
 # AssemblyAI
 ASSEMBLYAI_API_KEY=
 
-# Resend (Email)
-RESEND_API_KEY=
+# SMTP (Email)
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
 
 # Twilio (SMS)
 TWILIO_ACCOUNT_SID=
@@ -1329,7 +1337,7 @@ NODE_ENV=development
 
 ## Conclusion
 
-**QuoteFlow PRD Complete.**
+**Quotestream PRD Complete.**
 
 This document covers:
 ✅ Complete technical architecture (Next.js 16 + React 19 + PWA 2.0)  

@@ -1,4 +1,4 @@
-# QuoteFlow
+# Quotestream
 
 Privacy-first AI-powered quoting platform for service businesses (HVAC, plumbing, electrical). Built with Next.js 16, Supabase, and Tailwind CSS.
 
@@ -40,7 +40,7 @@ lib/
   actions/              # Server actions (ai.ts, quotes.ts)
   ai/                   # AI integrations (transcription.ts, vision.ts, prompts/)
   db/                   # IndexedDB offline storage (indexed-db.ts)
-  email/                # Email sending (Resend integration)
+  email/                # Email sending (SMTP via nodemailer)
   sms/                  # SMS sending (Twilio integration)
   supabase/             # Supabase client/server/proxy helpers
   sync/                 # Offline sync orchestrator
@@ -92,7 +92,7 @@ Key files:
 1. Business user opens quote detail (`/app/quotes/[id]`) and clicks "Send Quote"
 2. `QuoteDetailView` shows delivery method selector: Email, SMS, or Both
 3. `sendQuote` server action (`lib/actions/quotes.ts`) sends via selected channel(s):
-   - **Email:** `lib/email/send-quote.ts` uses Resend SDK with `emails/quote-email.tsx` (table-based HTML template, branded with business color + logo)
+   - **Email:** `lib/email/send-quote.ts` uses nodemailer SMTP with `emails/quote-email.tsx` (table-based HTML template, branded with business color + logo)
    - **SMS:** `lib/sms/send-quote.ts` uses Twilio SDK, message kept under 160 chars
 4. Quote status updates to `"sent"` with `sent_at` timestamp
 5. Public link: `/public/quotes/[id]` — no auth required, mobile-optimized, branded with business primary color
@@ -101,7 +101,8 @@ Key files:
 
 Key files:
 - `emails/quote-email.tsx` — React email template (table-based for cross-client compatibility)
-- `lib/email/send-quote.ts` — Resend integration (`sendQuoteEmail`, `sendAcceptanceNotification`)
+- `lib/email/send-quote.ts` — SMTP email sending (`sendQuoteEmail`, `sendAcceptanceNotification`)
+- `lib/email/smtp.ts` — Nodemailer SMTP transport singleton
 - `lib/sms/send-quote.ts` — Twilio integration (`sendQuoteSMS`)
 - `lib/actions/quotes.ts` — `sendQuote`, `acceptQuote`, `declineQuote` server actions
 - `components/quotes/quote-detail-view.tsx` — Authenticated detail view with send panel
@@ -162,9 +163,10 @@ See `.env.example`. Key vars:
 - `ANTHROPIC_API_KEY` — Required for Claude Vision quote generation
 - `ASSEMBLYAI_API_KEY` — Required for voice transcription
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase client
-- `RESEND_API_KEY` — Required for email delivery (Resend)
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Required for email delivery (SMTP via Resend)
+- `SMTP_FROM` — Default sender address for outbound emails
 - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` — Required for SMS delivery (Twilio)
-- `NEXT_PUBLIC_APP_URL` — Base URL for public quote links (e.g. `https://quoteflow.app`)
+- `NEXT_PUBLIC_APP_URL` — Base URL for public quote links (e.g. `https://quotestream.app`)
 - Server action body size limit is set to `10mb` in `next.config.ts`
 
 ---

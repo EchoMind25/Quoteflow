@@ -5,7 +5,7 @@ import { InviteAcceptForm } from "./invite-accept-form";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Accept Invitation | QuoteFlow",
+  title: "Accept Invitation | Quotestream",
 };
 
 export default async function InviteAcceptPage({
@@ -30,7 +30,7 @@ export default async function InviteAcceptPage({
       <div className="flex min-h-dvh flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm text-center">
           <h1 className="text-2xl font-bold tracking-tight text-brand-600">
-            QuoteFlow
+            Quotestream
           </h1>
           <div className="mt-6 rounded-lg border border-[hsl(var(--border))] p-6">
             <p className="font-medium">Invalid Invitation</p>
@@ -52,7 +52,7 @@ export default async function InviteAcceptPage({
       <div className="flex min-h-dvh flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm text-center">
           <h1 className="text-2xl font-bold tracking-tight text-brand-600">
-            QuoteFlow
+            Quotestream
           </h1>
           <div className="mt-6 rounded-lg border border-[hsl(var(--border))] p-6">
             <p className="font-medium">Invitation Expired</p>
@@ -82,7 +82,7 @@ export default async function InviteAcceptPage({
     <div className="flex min-h-dvh flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm text-center">
         <h1 className="text-2xl font-bold tracking-tight text-brand-600">
-          QuoteFlow
+          Quotestream
         </h1>
         <div className="mt-6 rounded-lg border border-[hsl(var(--border))] p-6">
           <p className="text-lg font-semibold">Team Invitation</p>
