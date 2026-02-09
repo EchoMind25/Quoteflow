@@ -8,7 +8,6 @@ export const metadata: Metadata = {
 export default function NewCustomerPage() {
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="mb-6 text-lg font-bold">Add Customer</h1>
       <CustomerForm />
     </div>
   );

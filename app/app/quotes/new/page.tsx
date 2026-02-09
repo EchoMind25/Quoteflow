@@ -1,6 +1,8 @@
 import { QuoteCreationWizard } from "@/components/quotes/quote-creation-wizard";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -41,7 +43,15 @@ export default async function NewQuotePage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="mb-6 text-lg font-bold">New Quote</h1>
+      <div className="mb-6 flex items-center gap-2">
+        <Link
+          href="/app/quotes"
+          className="rounded-lg p-1.5 transition-colors hover:bg-[hsl(var(--muted))]"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-lg font-bold">New Quote</h1>
+      </div>
       <QuoteCreationWizard
         businessId={profile?.business_id ?? undefined}
         userId={user.id}

@@ -7,6 +7,9 @@ const PUBLIC_ROUTES = [
   "/signup",
   "/auth/callback",
   "/public",
+  "/pricing",
+  "/invite",
+  "/monitoring",
 ];
 
 function isPublicRoute(pathname: string): boolean {

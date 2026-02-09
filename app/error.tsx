@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { captureError } from "@/lib/errors/handler";
 
@@ -25,14 +26,22 @@ export default function GlobalError({
         An unexpected error occurred. Your data is safe — any unsaved changes
         are stored locally and will sync when resolved.
       </p>
-      <button
-        type="button"
-        onClick={reset}
-        className="mt-6 flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-      >
-        <RefreshCw className="h-4 w-4" />
-        Try again
-      </button>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={reset}
+          className="flex h-10 items-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </button>
+        <Link
+          href="/"
+          className="flex h-10 items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+        >
+          Go home
+        </Link>
+      </div>
     </div>
   );
 }

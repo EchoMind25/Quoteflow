@@ -73,6 +73,13 @@ export default function AppError({
           Try again
         </button>
 
+        <Link
+          href="/app"
+          className="flex h-10 items-center gap-2 rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+        >
+          Go to Dashboard
+        </Link>
+
         {/* AI failure: offer manual entry */}
         {category === "ai_processing" && (
           <Link
