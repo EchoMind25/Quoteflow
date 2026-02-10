@@ -1,8 +1,11 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { truncateId } from "@/lib/admin/auth";
 import type { AdminAuditLog } from "@/types/database";
+
+function truncateId(id: string): string {
+  return `${id.substring(0, 8)}...`;
+}
 
 interface Props {
   logs: AdminAuditLog[];

@@ -1,4 +1,3 @@
-import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import withSerwist from "@serwist/next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
@@ -74,24 +73,4 @@ if (analyzeBundle) {
   config = withBundleAnalyzer({ enabled: true })(config);
 }
 
-export default withSentryConfig(config, {
-  org: "bedrockai",
-  project: "javascript-nextjs",
-  silent: !process.env.CI,
-
-  // Only upload source maps when SENTRY_AUTH_TOKEN is available
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  sourcemaps: {
-    disable: !process.env.SENTRY_AUTH_TOKEN,
-  },
-
-  widenClientFileUpload: true,
-  tunnelRoute: "/monitoring",
-
-  webpack: {
-    automaticVercelMonitors: true,
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-});
+export default config;

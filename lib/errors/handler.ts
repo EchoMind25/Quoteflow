@@ -1,5 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
-
 // ============================================================================
 // Error classification
 // ============================================================================
@@ -96,23 +94,15 @@ export function getUserMessage(category: ErrorCategory): string {
 }
 
 // ============================================================================
-// Error capture (Sentry + console)
+// Error capture
 // ============================================================================
 
 export function captureError(
   error: unknown,
-  context?: Record<string, unknown>,
+  _context?: Record<string, unknown>,
 ): { category: ErrorCategory; message: string } {
   const category = classifyError(error);
   const message = getUserMessage(category);
-
-  // Always report to Sentry if configured
-  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-    Sentry.captureException(error, {
-      tags: { error_category: category },
-      extra: context,
-    });
-  }
 
   // Server-side logging
   if (typeof window === "undefined") {
@@ -123,21 +113,3 @@ export function captureError(
   return { category, message };
 }
 
-// ============================================================================
-// Sentry user context
-// ============================================================================
-
-export function setSentryUser(user: {
-  id: string;
-  email?: string;
-  businessId?: string;
-}): void {
-  Sentry.setUser({ id: user.id, email: user.email });
-  if (user.businessId) {
-    Sentry.setTag("business_id", user.businessId);
-  }
-}
-
-export function clearSentryUser(): void {
-  Sentry.setUser(null);
-}
