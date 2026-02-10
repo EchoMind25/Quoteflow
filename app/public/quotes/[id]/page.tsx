@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .from("quotes")
     .select("title, quote_number, status")
     .eq("id", id)
-    .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+    .in("status", ["sent", "viewed", "revision_requested", "accepted", "declined", "expired"])
     .single();
 
   return {
@@ -39,7 +39,7 @@ export default async function PublicQuotePage({ params }: Props) {
       "id, business_id, customer_id, status, title, quote_number, subtotal_cents, tax_rate, tax_cents, discount_cents, total_cents, customer_notes, expires_at, viewed_at",
     )
     .eq("id", id)
-    .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+    .in("status", ["sent", "viewed", "revision_requested", "accepted", "declined", "expired"])
     .single();
 
   if (!quote) {
@@ -64,15 +64,26 @@ export default async function PublicQuotePage({ params }: Props) {
     customer = data;
   }
 
-  // Fetch business
+  // Fetch business (include industry for theme, review stats)
   const { data: business } = await supabase
     .from("businesses")
-    .select("name, logo_url, primary_color")
+    .select("name, logo_url, primary_color, industry, phone, email, review_count, review_average")
     .eq("id", quote.business_id)
     .single();
 
   if (!business) {
     notFound();
+  }
+
+  // Fetch job ID if quote is accepted (for portal link)
+  let jobId: string | null = null;
+  if (quote.status === "accepted") {
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("id")
+      .eq("quote_id", id)
+      .single();
+    jobId = job?.id ?? null;
   }
 
   // Mark as viewed (fire-and-forget, uses service role since anon SELECT is removed)
@@ -102,6 +113,7 @@ export default async function PublicQuotePage({ params }: Props) {
       lineItems={lineItems ?? []}
       customer={customer}
       business={business}
+      jobId={jobId}
     />
   );
 }

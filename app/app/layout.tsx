@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { BottomNav } from "@/components/dashboard/bottom-nav";
-import { DarkModeToggle } from "@/components/dashboard/dark-mode-toggle";
+import { BottomNavEnhanced } from "@/components/dashboard/bottom-nav-enhanced";
+import { FloatingAction } from "@/components/dashboard/floating-action";
+import { SmartHeader } from "@/components/layout/smart-header";
+import { OfflineIndicator } from "@/components/layout/offline-indicator";
+import { SmartPageTransition } from "@/components/layout/page-transition";
 import { SyncStatusWrapper } from "@/components/sync-status-wrapper";
 import { ToastProvider } from "@/components/toast-provider";
 import type { Metadata } from "next";
@@ -42,44 +45,32 @@ export default async function AppLayout({
 
   return (
     <ToastProvider>
-    <div className="flex min-h-dvh flex-col">
-      {/* ---- Top header ---- */}
-      <header
-        className="sticky top-0 z-40 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/95 backdrop-blur-sm supports-[backdrop-filter]:bg-[hsl(var(--background))]/80"
-        style={{
-          paddingTop: "env(safe-area-inset-top, 0px)",
-        }}
-      >
-        <div className="flex h-14 items-center justify-between px-4">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {businessName}
-            </p>
-            <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">
-              {userName}
-            </p>
-          </div>
-          <DarkModeToggle />
-        </div>
-      </header>
+      <div className="flex min-h-dvh flex-col">
+        {/* ---- Smart header with shrinking behavior ---- */}
+        <SmartHeader businessName={businessName} userName={userName} />
 
-      {/* ---- Main content with bottom padding for nav ---- */}
-      <main
-        className="flex-1"
-        style={{
-          paddingBottom:
-            "calc(4rem + env(safe-area-inset-bottom, 0px))",
-        }}
-      >
-        {children}
-      </main>
+        {/* ---- Offline indicator ---- */}
+        <OfflineIndicator />
 
-      {/* ---- Sync status bar (above bottom nav) ---- */}
-      <SyncStatusWrapper />
+        {/* ---- Main content with page transitions ---- */}
+        <main
+          className="flex-1"
+          style={{
+            paddingBottom: "calc(4rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
+          <SmartPageTransition>{children}</SmartPageTransition>
+        </main>
 
-      {/* ---- Bottom navigation ---- */}
-      <BottomNav />
-    </div>
+        {/* ---- Sync status bar (above bottom nav) ---- */}
+        <SyncStatusWrapper />
+
+        {/* ---- Enhanced bottom navigation ---- */}
+        <BottomNavEnhanced />
+
+        {/* ---- Floating action button ---- */}
+        <FloatingAction />
+      </div>
     </ToastProvider>
   );
 }

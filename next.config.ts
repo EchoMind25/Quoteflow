@@ -54,7 +54,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
-    optimizePackageImports: ["lucide-react", "@radix-ui/react-toast"],
+    optimizePackageImports: ["lucide-react", "@radix-ui/react-toast", "framer-motion"],
   },
 };
 

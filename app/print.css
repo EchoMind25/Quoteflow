@@ -1,0 +1,289 @@
+/**
+ * Print Styles for Quotestream Public Quotes
+ *
+ * Optimized for professional document printing
+ * Ensures quotes look great when printed or saved as PDF
+ */
+
+@media print {
+  /* ========================================================================
+     GLOBAL PRINT STYLES
+     ======================================================================== */
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide interactive and non-essential elements */
+  .actions-container,
+  .print-hide,
+  button:not(.print-show),
+  [role="button"]:not(.print-show) {
+    display: none !important;
+  }
+
+  /* ========================================================================
+     PAGE SETUP
+     ======================================================================== */
+
+  @page {
+    margin: 0.75in;
+    size: letter portrait;
+  }
+
+  /* ========================================================================
+     QUOTE HEADER
+     ======================================================================== */
+
+  .quote-header {
+    border-top: 4px solid var(--header-accent, #3b82f6) !important;
+    page-break-after: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove backgrounds for ink saving (except brand accent) */
+  .quote-header > * {
+    background: white !important;
+  }
+
+  /* ========================================================================
+     LINE ITEMS TABLE
+     ======================================================================== */
+
+  .line-items-section {
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th,
+  td {
+    border: 1px solid #e5e7eb !important;
+    padding: 12px !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  th {
+    background: #f9fafb !important;
+    font-weight: 600 !important;
+  }
+
+  /* ========================================================================
+     TOTALS SECTION
+     ======================================================================== */
+
+  /* Ensure totals stay with line items */
+  .line-items-section + * {
+    page-break-before: avoid;
+  }
+
+  /* Keep gradient on total (brand representation) */
+  .total-display,
+  [style*="gradient"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ========================================================================
+     BORDERS & SHADOWS
+     ======================================================================== */
+
+  /* Remove shadows (ink saving) */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Simplify borders */
+  [class*="border-"] {
+    border-color: #e5e7eb !important;
+  }
+
+  /* ========================================================================
+     TYPOGRAPHY
+     ======================================================================== */
+
+  /* Ensure readable font sizes */
+  body {
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  h1 {
+    font-size: 18pt;
+    margin-bottom: 0.5em;
+  }
+
+  h2 {
+    font-size: 16pt;
+    margin-bottom: 0.5em;
+  }
+
+  h3 {
+    font-size: 14pt;
+    margin-bottom: 0.5em;
+  }
+
+  /* ========================================================================
+     LINKS
+     ======================================================================== */
+
+  /* Show URLs for links */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #6b7280;
+    word-break: break-all;
+  }
+
+  /* Don't show URLs for internal navigation */
+  a[href^="#"]::after,
+  a[href^="/"]::after {
+    content: "";
+  }
+
+  /* ========================================================================
+     IMAGES
+     ======================================================================== */
+
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+
+  /* Business logo */
+  .quote-header img {
+    max-height: 1in !important;
+  }
+
+  /* ========================================================================
+     STATUS BADGES
+     ======================================================================== */
+
+  /* Ensure status badges print with colors */
+  [class*="status-"],
+  [class*="badge-"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border: 1px solid currentColor !important;
+  }
+
+  /* ========================================================================
+     PHOTO GALLERY
+     ======================================================================== */
+
+  .photo-gallery-section {
+    page-break-before: auto;
+    page-break-after: avoid;
+  }
+
+  .photo-strip,
+  .photo-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    page-break-inside: avoid;
+  }
+
+  .photo-thumb {
+    max-width: 2in;
+    height: auto;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Hide lightbox overlay in print */
+  [class*="lightbox"],
+  [class*="modal"],
+  .fixed {
+    display: none !important;
+  }
+
+  /* ========================================================================
+     ANIMATIONS
+     ======================================================================== */
+
+  /* Disable all animations for print */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* ========================================================================
+     FOOTER
+     ======================================================================== */
+
+  /* Add page numbers */
+  @page {
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9pt;
+      color: #6b7280;
+    }
+  }
+
+  /* ========================================================================
+     DARK MODE OVERRIDE
+     ======================================================================== */
+
+  /* Force light mode for print */
+  .dark * {
+    color: black !important;
+    background: white !important;
+  }
+
+  /* Preserve brand colors */
+  .dark [style*="--primary"],
+  .dark [style*="gradient"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ========================================================================
+     UTILITY CLASSES
+     ======================================================================== */
+
+  .print-only {
+    display: block !important;
+  }
+
+  .no-print,
+  .print-hide {
+    display: none !important;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .page-break-avoid {
+    page-break-inside: avoid;
+  }
+}

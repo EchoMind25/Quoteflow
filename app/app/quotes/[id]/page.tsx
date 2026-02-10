@@ -31,7 +31,7 @@ export default async function QuoteDetailPage({ params }: Props) {
   const { data: quote } = await supabase
     .from("quotes")
     .select(
-      "id, business_id, customer_id, created_by, quote_number, title, description, status, subtotal_cents, tax_rate, tax_cents, discount_cents, total_cents, notes, customer_notes, expires_at, sent_at, viewed_at, accepted_at, declined_at, voice_transcript, voice_audio_url, voice_confidence, created_at, updated_at",
+      "id, business_id, customer_id, created_by, quote_number, title, description, status, subtotal_cents, tax_rate, tax_cents, discount_cents, total_cents, notes, customer_notes, expires_at, sent_at, viewed_at, accepted_at, declined_at, voice_transcript, voice_audio_url, voice_confidence, parent_quote_id, revision_number, revision_notes, created_at, updated_at",
     )
     .eq("id", id)
     .single();

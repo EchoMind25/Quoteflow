@@ -1,14 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import { formatCents } from "@/lib/utils";
-import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import {
   acceptQuote,
   declineQuote,
@@ -21,6 +14,12 @@ import type {
   Customer,
   Business,
 } from "@/types/database";
+import { applyBusinessTheme } from "@/lib/design-system/apply-theme";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PublicQuoteHeader } from "@/components/quotes/PublicQuoteHeader";
+import { PublicLineItems } from "@/components/quotes/PublicLineItems";
+import { AcceptDeclineActions } from "@/components/quotes/AcceptDeclineActions";
+import { AcceptedConfirmation } from "@/components/quotes/AcceptedConfirmation";
 
 // ============================================================================
 // Types
@@ -46,7 +45,11 @@ type PublicQuoteViewProps = {
     "id" | "title" | "description" | "quantity" | "unit" | "line_total_cents"
   >[];
   customer: Pick<Customer, "first_name" | "last_name"> | null;
-  business: Pick<Business, "name" | "logo_url" | "primary_color">;
+  business: Pick<Business, "name" | "logo_url" | "primary_color" | "industry" | "phone" | "email"> & {
+    review_count?: number;
+    review_average?: number;
+  };
+  jobId?: string | null;
 };
 
 // ============================================================================
@@ -61,6 +64,7 @@ export function PublicQuoteView({
   lineItems,
   customer,
   business,
+  jobId,
 }: PublicQuoteViewProps) {
   const [acceptState, acceptAction, isAccepting] = useActionState(
     acceptQuote,
@@ -71,12 +75,19 @@ export function PublicQuoteView({
     initialDeclineState,
   );
 
+  // Apply business theme on mount
+  useEffect(() => {
+    if (business.primary_color && business.industry) {
+      applyBusinessTheme(business.primary_color, business.industry);
+    }
+  }, [business.primary_color, business.industry]);
+
   const isTerminal =
     quote.status === "accepted" ||
     quote.status === "declined" ||
     quote.status === "expired" ||
-    acceptState.success ||
-    declineState.success;
+    !!acceptState.success ||
+    !!declineState.success;
 
   const daysUntilExpiry = quote.expires_at
     ? Math.ceil(
@@ -88,235 +99,146 @@ export function PublicQuoteView({
   const isExpiringSoon =
     daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 3;
 
-  const customerName = customer
-    ? [customer.first_name, customer.last_name].filter(Boolean).join(" ")
-    : null;
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Show confirmation when quote is accepted/declined
+  useEffect(() => {
+    if (acceptState.success || declineState.success) {
+      setShowConfirmation(true);
+    }
+  }, [acceptState.success, declineState.success]);
+
+  const handleAccept = () => {
+    const form = document.getElementById("accept-form") as HTMLFormElement;
+    if (form) {
+      const formData = new FormData(form);
+      acceptAction(formData);
+    }
+  };
+
+  const handleDecline = () => {
+    const form = document.getElementById("decline-form") as HTMLFormElement;
+    if (form) {
+      const formData = new FormData(form);
+      declineAction(formData);
+    }
+  };
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: "#f4f4f5" }}
-    >
-      {/* Branded header */}
-      <div
-        className="px-4 py-8 text-center text-white"
-        style={{ backgroundColor: business.primary_color }}
-      >
-        {business.logo_url && (
-          <img
-            src={business.logo_url}
-            alt={business.name}
-            className="mx-auto mb-3 h-10 w-auto"
-          />
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* Professional Document Header */}
+      <PublicQuoteHeader business={business} quote={quote} customer={customer} />
+
+      {/* Content Container */}
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Status Badges */}
+        {(quote.status === "accepted" || acceptState.success) && (
+          <div className="mb-6 flex justify-center">
+            <StatusBadge status="accepted" />
+          </div>
         )}
-        <h1 className="text-xl font-bold">{business.name}</h1>
-      </div>
+        {(quote.status === "declined" || declineState.success) && (
+          <div className="mb-6 flex justify-center">
+            <StatusBadge status="declined" />
+          </div>
+        )}
+        {quote.status === "expired" && (
+          <div className="mb-6 flex justify-center">
+            <StatusBadge status="expired" />
+          </div>
+        )}
 
-      {/* Content */}
-      <div className="mx-auto max-w-lg px-4 py-6">
-        {/* Status banner */}
-        {quote.status === "accepted" || acceptState.success ? (
-          <StatusBanner
-            icon={CheckCircle}
-            label="Quote Accepted"
-            className="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
-          />
-        ) : quote.status === "declined" || declineState.success ? (
-          <StatusBanner
-            icon={XCircle}
-            label="Quote Declined"
-            className="bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
-          />
-        ) : quote.status === "expired" ? (
-          <StatusBanner
-            icon={Clock}
-            label="Quote Expired"
-            className="bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-          />
-        ) : null}
-
-        {/* Expiry warning */}
+        {/* Expiry Warning */}
         {isExpiringSoon && !isTerminal && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            {daysUntilExpiry === 1
-              ? "This quote expires tomorrow."
-              : `This quote expires in ${daysUntilExpiry} days.`}
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+            <AlertTriangle className="h-5 w-5 shrink-0" />
+            <span className="text-sm font-medium">
+              {daysUntilExpiry === 1
+                ? "This quote expires tomorrow."
+                : `This quote expires in ${daysUntilExpiry} days.`}
+            </span>
           </div>
         )}
 
-        {/* Quote card */}
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-          {/* Quote header */}
-          <div className="border-b border-gray-100 px-4 py-4">
-            {customerName && (
-              <p className="text-sm text-gray-500">Hi {customerName},</p>
-            )}
-            <h2 className="mt-1 text-lg font-semibold text-gray-900">
-              {quote.title}
-            </h2>
-            <p className="mt-0.5 text-xs text-gray-400">
-              Quote #{quote.quote_number}
-            </p>
-          </div>
-
-          {/* Line items */}
-          <div className="divide-y divide-gray-50 px-4">
-            {lineItems.map((item) => (
-              <div key={item.id} className="py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {item.title}
-                    </p>
-                    {item.description && (
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {item.description}
-                      </p>
-                    )}
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {item.quantity} {item.unit}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-medium tabular-nums text-gray-900">
-                    {formatCents(item.line_total_cents)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Totals */}
-          <div className="border-t border-gray-100 px-4 py-4">
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>Subtotal</span>
-              <span className="tabular-nums">
-                {formatCents(quote.subtotal_cents)}
-              </span>
-            </div>
-            {quote.tax_cents > 0 && (
-              <div className="mt-1 flex justify-between text-sm text-gray-500">
-                <span>Tax ({(quote.tax_rate * 100).toFixed(1)}%)</span>
-                <span className="tabular-nums">
-                  {formatCents(quote.tax_cents)}
-                </span>
-              </div>
-            )}
-            {quote.discount_cents > 0 && (
-              <div className="mt-1 flex justify-between text-sm text-green-600">
-                <span>Discount</span>
-                <span className="tabular-nums">
-                  -{formatCents(quote.discount_cents)}
-                </span>
-              </div>
-            )}
-            <div className="mt-3 flex justify-between border-t border-gray-200 pt-3">
-              <span className="text-base font-bold text-gray-900">Total</span>
-              <span className="text-xl font-bold tabular-nums text-gray-900">
-                {formatCents(quote.total_cents)}
-              </span>
-            </div>
-          </div>
-
-          {/* Notes */}
-          {quote.customer_notes && (
-            <div className="border-t border-gray-100 px-4 py-4">
-              <p className="text-xs font-medium text-gray-400">Notes</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
-                {quote.customer_notes}
-              </p>
-            </div>
-          )}
+        {/* Quote Title Hero */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white print:text-black">
+            {quote.title}
+          </h2>
         </div>
 
-        {/* Action buttons */}
-        {!isTerminal && (
-          <div className="mt-6 space-y-3">
-            {acceptState.error && (
-              <p className="text-center text-sm text-red-600">
-                {acceptState.error}
-              </p>
-            )}
-            {declineState.error && (
-              <p className="text-center text-sm text-red-600">
-                {declineState.error}
-              </p>
-            )}
+        {/* Line Items & Totals */}
+        <PublicLineItems items={lineItems} quote={quote} />
 
-            <form action={acceptAction}>
-              <input type="hidden" name="quote_id" value={quote.id} />
-              <button
-                type="submit"
-                disabled={isAccepting || isDeclining}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50"
-                style={{ backgroundColor: business.primary_color }}
-              >
-                {isAccepting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle className="h-5 w-5" />
-                    Accept Quote
-                  </>
-                )}
-              </button>
-            </form>
-
-            <form action={declineAction}>
-              <input type="hidden" name="quote_id" value={quote.id} />
-              <button
-                type="submit"
-                disabled={isAccepting || isDeclining}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
-              >
-                {isDeclining ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <XCircle className="h-5 w-5" />
-                    Decline Quote
-                  </>
-                )}
-              </button>
-            </form>
+        {/* Customer Notes */}
+        {quote.customer_notes && (
+          <div className="mt-6 rounded-lg border border-neutral-200 bg-white px-6 py-4 dark:border-neutral-700 dark:bg-neutral-900 print:border print:bg-white">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              Notes
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300 print:text-black">
+              {quote.customer_notes}
+            </p>
           </div>
         )}
 
-        {/* Expiry footer */}
+        {/* Confirmation Message */}
+        {showConfirmation && (
+          <div className="mt-8">
+            <AcceptedConfirmation
+              businessName={business.name}
+              isDeclined={declineState.success}
+            />
+          </div>
+        )}
+
+        {/* Portal Link (after acceptance) */}
+        {(quote.status === "accepted" || acceptState.success) && jobId && (
+          <div className="mt-6 rounded-xl border border-[hsl(var(--primary-200,220_90%_85%))] bg-[hsl(var(--primary-50,220_90%_97%))] p-6 text-center dark:border-[hsl(var(--primary-800,220_90%_25%))] dark:bg-[hsl(var(--primary-900,220_90%_15%))]/20">
+            <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+              Track your job status, schedule, and more:
+            </p>
+            <a
+              href={`/public/jobs/${jobId}`}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary-600))] px-6 font-medium text-white hover:bg-[hsl(var(--primary-700))]"
+            >
+              View Job Portal
+            </a>
+          </div>
+        )}
+
+        {/* Expiry Footer */}
         {quote.expires_at && (
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
             Valid until {formatDate(quote.expires_at)}
           </p>
         )}
 
         {/* Powered by */}
-        <p className="mt-4 pb-8 text-center text-xs text-gray-300">
+        <p className="mt-4 pb-20 text-center text-xs text-neutral-400 dark:text-neutral-600 print:pb-4 sm:pb-8">
           Powered by Quotestream
         </p>
       </div>
-    </div>
-  );
-}
 
-// ============================================================================
-// Sub-components
-// ============================================================================
+      {/* Hidden forms for server actions */}
+      <form id="accept-form" action={acceptAction} className="hidden">
+        <input type="hidden" name="quote_id" value={quote.id} />
+      </form>
+      <form id="decline-form" action={declineAction} className="hidden">
+        <input type="hidden" name="quote_id" value={quote.id} />
+      </form>
 
-function StatusBanner({
-  icon: Icon,
-  label,
-  className,
-}: {
-  icon: typeof CheckCircle;
-  label: string;
-  className: string;
-}) {
-  return (
-    <div
-      className={`mb-4 flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium ${className}`}
-    >
-      <Icon className="h-5 w-5" />
-      {label}
+      {/* Accept/Decline Actions (Fixed/Sticky) */}
+      <AcceptDeclineActions
+        quoteId={quote.id}
+        isAccepting={isAccepting}
+        isDeclining={isDeclining}
+        isTerminal={isTerminal}
+        acceptError={acceptState.error}
+        declineError={declineState.error}
+        onAccept={handleAccept}
+        onDecline={handleDecline}
+      />
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { StatusProvider } from "@/components/ui/StatusAnnouncer";
 import "./globals.css";
+import "./print.css";
 
 export const metadata: Metadata = {
   title: "Quotestream",
@@ -36,8 +38,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link
+            rel="preconnect"
+            href={process.env.NEXT_PUBLIC_SUPABASE_URL}
+          />
+        )}
+        <link rel="dns-prefetch" href="https://api.assemblyai.com" />
+      </head>
       <body className="min-h-dvh font-sans antialiased">
-        {children}
+        <StatusProvider>
+          {children}
+        </StatusProvider>
         <Analytics />
       </body>
     </html>

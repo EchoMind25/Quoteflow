@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from "react-dom/server";
+import { render } from "@react-email/components";
 import { formatCents } from "@/lib/utils";
 import { QuoteEmail } from "@/emails/quote-email";
 import { getTransport } from "@/lib/email/smtp";
@@ -63,7 +63,7 @@ export async function sendQuoteEmail(
     const transport = getTransport();
     const fromAddress = process.env.SMTP_FROM ?? `${business.name} <noreply@quotestream.app>`;
 
-    const html = renderToStaticMarkup(
+    const html = await render(
       QuoteEmail({
         businessName: business.name,
         businessLogoUrl: business.logo_url,

@@ -1,0 +1,226 @@
+/**
+ * Quotestream Design System Tokens
+ *
+ * CSS custom properties for:
+ * - Dynamic color palettes (injected by color engine at runtime)
+ * - Elevation shadows (5-level system)
+ * - Fluid typography scale
+ * - Dark mode adaptations
+ * - High-contrast mode for sunlight readability
+ */
+
+:root {
+    /* ========================================================================
+     * DYNAMIC COLOR PALETTES
+     * These are placeholders - actual values injected by applyBusinessTheme()
+     * ======================================================================== */
+
+    /* Primary palette (from business primary_color) */
+    --primary-50: 214 100% 97%;
+    --primary-100: 214 95% 93%;
+    --primary-200: 213 97% 87%;
+    --primary-300: 212 96% 78%;
+    --primary-400: 213 94% 68%;
+    --primary-500: 217 91% 60%;  /* Base */
+    --primary-600: 221 83% 53%;
+    --primary-700: 224 76% 48%;
+    --primary-800: 226 71% 40%;
+    --primary-900: 224 64% 33%;
+    --primary-950: 226 57% 21%;
+
+    /* Primary RGB (for alpha transparency) */
+    --primary-rgb: 59, 130, 246;
+
+    /* Accent palette (complementary to primary) */
+    --accent-50: 39 100% 97%;
+    --accent-100: 39 95% 93%;
+    --accent-200: 38 97% 87%;
+    --accent-300: 37 96% 78%;
+    --accent-400: 36 94% 68%;
+    --accent-500: 35 91% 60%;
+    --accent-600: 33 83% 53%;
+    --accent-700: 31 76% 48%;
+    --accent-800: 29 71% 40%;
+    --accent-900: 28 64% 33%;
+    --accent-950: 27 57% 21%;
+
+    /* Semantic colors */
+    --success-base: 140 70% 45%;
+    --success-light: 140 60% 92%;
+    --success-dark: 140 80% 25%;
+
+    --warning-base: 45 70% 55%;
+    --warning-light: 45 60% 92%;
+    --warning-dark: 45 80% 30%;
+
+    --danger-base: 0 70% 50%;
+    --danger-light: 0 60% 92%;
+    --danger-dark: 0 80% 25%;
+
+    /* Tinted neutrals */
+    --neutral-50: 214 10% 98%;
+    --neutral-100: 214 10% 95%;
+    --neutral-200: 214 10% 88%;
+    --neutral-300: 214 10% 78%;
+    --neutral-400: 214 10% 65%;
+    --neutral-500: 214 10% 50%;
+    --neutral-600: 214 10% 40%;
+    --neutral-700: 214 10% 30%;
+    --neutral-800: 214 10% 20%;
+    --neutral-900: 214 10% 12%;
+    --neutral-950: 214 10% 8%;
+
+    /* ========================================================================
+     * ELEVATION SYSTEM (5 levels)
+     * ======================================================================== */
+
+    /* Level 0: Recessed (input fields, wells) */
+    --shadow-elevation-0: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+
+    /* Level 1: Surface (default cards) */
+    --shadow-elevation-1:
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.06);
+
+    /* Level 2: Raised (interactive cards, hover states) */
+    --shadow-elevation-2:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    /* Level 3: Floating (dropdowns, popovers) */
+    --shadow-elevation-3:
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+    /* Level 4: Modal (dialogs, sheets) */
+    --shadow-elevation-4:
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+    /* Level 5: Overlay (toasts, tooltips) */
+    --shadow-elevation-5: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+    /* ========================================================================
+     * FLUID TYPOGRAPHY
+     * Responsive font sizes using clamp()
+     * ======================================================================== */
+
+    --text-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.75rem);
+    --text-sm: clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
+    --text-base: clamp(0.9rem, 0.85rem + 0.25vw, 1rem);
+    --text-lg: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+    --text-xl: clamp(1.15rem, 1rem + 0.75vw, 1.25rem);
+    --text-2xl: clamp(1.4rem, 1.1rem + 1.5vw, 1.5rem);
+    --text-3xl: clamp(1.75rem, 1.25rem + 2.5vw, 1.875rem);
+    --text-display: clamp(2.25rem, 1.5rem + 3.75vw, 3rem);
+
+    /* ========================================================================
+     * SURFACES (for dark mode layering)
+     * ======================================================================== */
+
+    --surface-base: hsl(var(--background));
+    --surface-1: hsl(var(--neutral-50));
+    --surface-2: hsl(var(--neutral-100));
+    --surface-3: hsl(var(--neutral-200));
+  }
+
+  /* ==========================================================================
+   * DARK MODE
+   * Surfaces are DARKER than background (opposite of light mode)
+   * Shadows become glows
+   * ========================================================================== */
+
+  .dark {
+    /* Dark blue background (not pure black) */
+    --bg-base: 222 47% 5%;     /* #0a0f1a */
+    --surface-1: 222 47% 8%;    /* #0f1629 */
+    --surface-2: 222 47% 11%;   /* #151d33 */
+    --surface-3: 222 47% 15%;   /* #1a2540 */
+
+    /* Shadows become subtle edge glows */
+    --shadow-elevation-0: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+
+    --shadow-elevation-1:
+      0 0 0 1px rgba(255, 255, 255, 0.05),
+      0 1px 2px rgba(0, 0, 0, 0.3);
+
+    --shadow-elevation-2:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 4px 6px rgba(0, 0, 0, 0.4),
+      0 0 20px rgba(var(--primary-rgb), 0.08);
+
+    --shadow-elevation-3:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 10px 15px rgba(0, 0, 0, 0.5),
+      0 0 30px rgba(var(--primary-rgb), 0.12);
+
+    --shadow-elevation-4:
+      0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 20px 25px rgba(0, 0, 0, 0.6),
+      0 0 40px rgba(var(--primary-rgb), 0.15);
+
+    --shadow-elevation-5:
+      0 0 0 1px rgba(255, 255, 255, 0.15),
+      0 25px 50px rgba(0, 0, 0, 0.7),
+      0 0 50px rgba(var(--primary-rgb), 0.2);
+
+    /* Adjust neutrals for dark mode */
+    --neutral-50: 222 10% 15%;
+    --neutral-100: 222 10% 20%;
+    --neutral-200: 222 10% 25%;
+    --neutral-300: 222 10% 35%;
+    --neutral-400: 222 10% 45%;
+    --neutral-500: 222 10% 55%;
+    --neutral-600: 222 10% 65%;
+    --neutral-700: 222 10% 75%;
+    --neutral-800: 222 10% 85%;
+    --neutral-900: 222 10% 92%;
+    --neutral-950: 222 10% 96%;
+  }
+
+  /* ==========================================================================
+   * HIGH CONTRAST MODE (sunlight readability for field technicians)
+   * ========================================================================== */
+
+  @media (prefers-contrast: more) {
+    :root {
+      /* Boost all contrast ratios to 7:1 minimum (WCAG AAA) */
+      --border-width: 2px;
+
+      /* Increase text darkness */
+      --foreground: 222.2 84% 0%;
+
+      /* Increase shadow intensity */
+      --shadow-elevation-1:
+        0 1px 3px rgba(0, 0, 0, 0.25),
+        0 1px 2px rgba(0, 0, 0, 0.15);
+
+      --shadow-elevation-2:
+        0 4px 6px -1px rgba(0, 0, 0, 0.25),
+        0 2px 4px -1px rgba(0, 0, 0, 0.15);
+
+      --shadow-elevation-3:
+        0 10px 15px -3px rgba(0, 0, 0, 0.3),
+        0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    }
+
+    .dark {
+      /* Pure white text on dark */
+      --foreground: 0 0% 100%;
+
+      /* Deeper background */
+      --bg-base: 222 47% 3%;
+    }
+  }
+
+  /* ==========================================================================
+   * REDUCED MOTION (accessibility)
+   * ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

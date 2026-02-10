@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { formatCents } from "@/lib/utils";
-import { useActionState, useCallback, useState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import {
   Mic,
   FileText,
@@ -17,7 +17,20 @@ import {
   Users,
   ImageIcon,
 } from "lucide-react";
-import { PhotoCapture } from "@/components/quotes/photo-capture";
+const AIProcessingView = dynamic(
+  () =>
+    import("@/components/quotes/AIProcessingView").then(
+      (mod) => mod.AIProcessingView,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    ),
+  },
+);
 import {
   CustomerSearch,
   type CustomerResult,
@@ -38,15 +51,33 @@ import {
 import { cacheAudio } from "@/lib/db/indexed-db";
 import { isOnline } from "@/lib/sync/offline-sync";
 import { createQuoteOptimistic } from "@/lib/sync/optimistic-quote";
+import { useStatusAnnouncer } from "@/components/ui/StatusAnnouncer";
+import { useToast } from "@/components/toast-provider";
 import type { IndustryType } from "@/types/database";
 
 // Lazy-load heavy components (not needed on first render / customer step)
 const VoiceRecorder = dynamic(
   () =>
-    import("@/components/quotes/voice-recorder").then(
-      (mod) => mod.VoiceRecorder,
+    import("@/components/quotes/voice-recorder-enhanced").then(
+      (mod) => mod.VoiceRecorderEnhanced,
     ),
   {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-32 items-center justify-center rounded-lg border border-[hsl(var(--border))]">
+        <Loader2 className="h-5 w-5 animate-spin text-[hsl(var(--muted-foreground))]" />
+      </div>
+    ),
+  },
+);
+
+const PhotoCapture = dynamic(
+  () =>
+    import("@/components/quotes/photo-capture-enhanced").then(
+      (mod) => mod.PhotoCaptureEnhanced,
+    ),
+  {
+    ssr: false,
     loading: () => (
       <div className="flex h-32 items-center justify-center rounded-lg border border-[hsl(var(--border))]">
         <Loader2 className="h-5 w-5 animate-spin text-[hsl(var(--muted-foreground))]" />
@@ -129,6 +160,22 @@ export function QuoteCreationWizard({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [step, setStep] = useState<WizardStep>("customer");
+  const { announce } = useStatusAnnouncer();
+  const { toastWithAction } = useToast();
+
+  // Announce step changes for screen readers
+  useEffect(() => {
+    const stepNames: Record<WizardStep, string> = {
+      customer: "Step 1: Select customer",
+      photos: "Step 2: Capture photos",
+      voice: "Step 3: Record voice note",
+      transcript: "Step 4: Review transcript",
+      generating: "Generating quote with AI",
+      review: "Step 5: Review and send quote",
+    };
+    announce(stepNames[step]);
+  }, [step, announce]);
+
   const [wizardState, setWizardState] = useState<WizardState>({
     selectedCustomer: null,
     audioBlob: null,
@@ -161,7 +208,7 @@ export function QuoteCreationWizard({
   );
 
   // ---- Quote generation action ----
-  const [generateState, generateAction, isGenerating] = useActionState(
+  const [generateState, generateAction, _isGenerating] = useActionState(
     async (_prev: GenerateQuoteState, formData: FormData) => {
       const result = await generateQuoteFromAI(_prev, formData);
       if (result.lineItems) {
@@ -260,13 +307,39 @@ export function QuoteCreationWizard({
     [],
   );
 
-  // ---- Handle line item removal ----
-  const handleRemoveLineItem = useCallback((index: number) => {
-    setWizardState((s) => ({
-      ...s,
-      lineItems: s.lineItems.filter((_, i) => i !== index),
-    }));
-  }, []);
+  // ---- Handle line item removal with undo ----
+  const handleRemoveLineItem = useCallback(
+    (index: number) => {
+      setWizardState((prev) => {
+        const removedItem = prev.lineItems[index];
+        if (!removedItem) return prev;
+
+        const newItems = prev.lineItems.filter((_, i) => i !== index);
+
+        // Show undo toast (5 seconds)
+        toastWithAction(
+          `"${removedItem.title}" removed`,
+          {
+            label: "Undo",
+            onClick: () => {
+              setWizardState((s) => ({
+                ...s,
+                lineItems: [
+                  ...s.lineItems.slice(0, index),
+                  removedItem,
+                  ...s.lineItems.slice(index),
+                ],
+              }));
+            },
+          },
+          5000,
+        );
+
+        return { ...prev, lineItems: newItems };
+      });
+    },
+    [toastWithAction],
+  );
 
   // ---- Handle save quote (online or offline) ----
   const handleSaveQuote = useCallback(async () => {
@@ -646,32 +719,27 @@ export function QuoteCreationWizard({
       {/* ---- Generating step ---- */}
       {step === "generating" && (
         <div className="space-y-6">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">Generating your quote</h2>
-            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-              AI is analyzing your{" "}
-              {wizardState.photoUrls.length > 0 ? "photos and " : ""}
-              description to create line items...
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-4 py-8">
-            <div className="relative flex h-16 w-16 items-center justify-center">
-              <div className="absolute inset-0 animate-spin rounded-full border-2 border-[hsl(var(--border))] border-t-brand-600" />
-              <Sparkles className="h-6 w-6 text-brand-600" />
-            </div>
-            <ProgressIndicator isGenerating={isGenerating} />
-          </div>
+          {/* Full-screen AI processing overlay (hidden on error) */}
+          {!generateState.error && (
+            <AIProcessingView
+              photoUrls={wizardState.photoUrls}
+              hasVoiceNote={!!wizardState.audioBlob}
+              industry={wizardState.industry}
+            />
+          )}
 
           {generateState.error && (
             <div className="space-y-3">
+              <div className="text-center">
+                <h2 className="text-lg font-semibold">Generation failed</h2>
+              </div>
               <p className="text-center text-sm text-[hsl(var(--destructive))]">
                 {generateState.error}
               </p>
               <button
                 type="button"
                 onClick={handleGenerate}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
               >
                 <RefreshCw className="h-4 w-4" />
                 Try again
@@ -770,7 +838,7 @@ export function QuoteCreationWizard({
             <button
               type="button"
               onClick={handleRegenerate}
-              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
             >
               <RefreshCw className="h-4 w-4" />
               Regenerate
@@ -778,7 +846,7 @@ export function QuoteCreationWizard({
             <button
               type="button"
               onClick={() => setStep("transcript")}
-              className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
             >
               <ArrowLeft className="h-4 w-4" />
               Edit description
@@ -842,21 +910,6 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
     >
       {pct}% confidence
     </span>
-  );
-}
-
-function ProgressIndicator({ isGenerating }: { isGenerating: boolean }) {
-  if (!isGenerating) return null;
-
-  return (
-    <div className="space-y-1 text-center">
-      <p className="text-sm font-medium text-[hsl(var(--muted-foreground))]">
-        Analyzing photos and description...
-      </p>
-      <p className="text-xs text-[hsl(var(--muted-foreground))]">
-        This typically takes 10-15 seconds
-      </p>
-    </div>
   );
 }
 
@@ -1057,7 +1110,7 @@ function InlineCustomerForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand-600 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1068,7 +1121,7 @@ function InlineCustomerForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-10 items-center justify-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
+          className="flex h-11 items-center justify-center rounded-lg border border-[hsl(var(--border))] px-4 text-sm font-medium transition-colors hover:bg-[hsl(var(--muted))]"
         >
           Cancel
         </button>

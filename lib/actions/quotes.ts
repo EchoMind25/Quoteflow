@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import type { Database, LineItemType } from "@/types/database";
 import { sendQuoteEmail, sendAcceptanceNotification } from "@/lib/email/send-quote";
 import { sendQuoteSMS } from "@/lib/sms/send-quote";
 import { checkEmailRateLimit } from "@/lib/rate-limit";
@@ -27,6 +28,17 @@ export type AcceptQuoteState = {
 export type DeclineQuoteState = {
   error?: string;
   success?: boolean;
+};
+
+export type RevisionRequestState = {
+  error?: string;
+  success?: boolean;
+};
+
+export type CreateRevisionState = {
+  error?: string;
+  success?: boolean;
+  data?: { quoteId: string };
 };
 
 // ============================================================================
@@ -217,7 +229,7 @@ export async function acceptQuote(
         "id, status, customer_id, business_id, quote_number, title, total_cents, viewed_at, expires_at",
       )
       .eq("id", quoteId)
-      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+      .in("status", ["sent", "viewed", "revision_requested", "accepted", "declined", "expired"])
       .single();
 
     if (quoteError || !quote) {
@@ -322,7 +334,7 @@ export async function declineQuote(
       .from("quotes")
       .select("id, status")
       .eq("id", quoteId)
-      .in("status", ["sent", "viewed", "accepted", "declined", "expired"])
+      .in("status", ["sent", "viewed", "revision_requested", "accepted", "declined", "expired"])
       .single();
 
     if (quoteError || !quote) {
@@ -353,6 +365,157 @@ export async function declineQuote(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Decline quote error:", err);
+    return { error: "An unexpected error occurred." };
+  }
+}
+
+// ============================================================================
+// Request Quote Revision (public — no auth required)
+// ============================================================================
+
+export async function requestQuoteRevision(
+  _prevState: RevisionRequestState,
+  formData: FormData,
+): Promise<RevisionRequestState> {
+  try {
+    const quoteId = formData.get("quote_id") as string;
+    const message = formData.get("message") as string;
+
+    if (!quoteId) return { error: "Quote ID required." };
+    if (!message?.trim()) return { error: "Please describe the changes you'd like." };
+
+    const supabase = createServiceClient();
+
+    // Verify quote exists and is in valid state for revision
+    const { data: quote, error: fetchError } = await supabase
+      .from("quotes")
+      .select("id, status, business_id")
+      .eq("id", quoteId)
+      .in("status", ["sent", "viewed"])
+      .single();
+
+    if (fetchError || !quote) {
+      return { error: "Quote not found or cannot be revised." };
+    }
+
+    // Update status
+    const { error: updateError } = await supabase
+      .from("quotes")
+      .update({
+        status: "revision_requested" as Database["public"]["Enums"]["quote_status"],
+        revision_notes: message,
+      })
+      .eq("id", quoteId);
+
+    if (updateError) {
+      return { error: "Failed to submit revision request." };
+    }
+
+    // Add message to thread
+    await supabase.from("quote_messages").insert({
+      quote_id: quoteId,
+      sender_type: "customer",
+      message: message,
+    });
+
+    return { success: true };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Request revision error:", err);
+    return { error: "An unexpected error occurred." };
+  }
+}
+
+// ============================================================================
+// Create Quote Revision (authenticated — business only)
+// ============================================================================
+
+export async function createRevision(
+  _prevState: CreateRevisionState,
+  formData: FormData,
+): Promise<CreateRevisionState> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Not authenticated." };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("business_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.business_id) return { error: "No business associated." };
+
+    const originalQuoteId = formData.get("original_quote_id") as string;
+    if (!originalQuoteId) return { error: "Original quote ID required." };
+
+    // Get original quote with line items
+    const { data: original } = await supabase
+      .from("quotes")
+      .select("*, quote_line_items(*)")
+      .eq("id", originalQuoteId)
+      .eq("business_id", profile.business_id)
+      .single();
+
+    if (!original) return { error: "Original quote not found." };
+
+    // Calculate next revision number
+    const revisionNumber = (original.revision_number || 1) + 1;
+
+    // Create new quote as revision
+    const { data: newQuote, error: createError } = await supabase
+      .from("quotes")
+      .insert({
+        business_id: profile.business_id,
+        customer_id: original.customer_id,
+        created_by: user.id,
+        parent_quote_id: original.parent_quote_id || original.id,
+        revision_number: revisionNumber,
+        status: "draft",
+        title: original.title,
+        description: original.description,
+        subtotal_cents: original.subtotal_cents,
+        tax_rate: original.tax_rate,
+        tax_cents: original.tax_cents,
+        discount_cents: original.discount_cents,
+        total_cents: original.total_cents,
+        notes: original.notes,
+        customer_notes: original.customer_notes,
+        expires_at: original.expires_at,
+      })
+      .select()
+      .single();
+
+    if (createError || !newQuote) return { error: "Failed to create revision." };
+
+    // Copy line items
+    const lineItems = (original.quote_line_items || []).map(
+      (item: { title: string; description: string | null; quantity: number; unit: string; unit_price_cents: number; line_total_cents: number; item_type: string; sort_order: number; ai_confidence: number | null; ai_reasoning: string | null }) => ({
+        quote_id: newQuote.id,
+        title: item.title,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price_cents: item.unit_price_cents,
+        line_total_cents: item.line_total_cents,
+        item_type: item.item_type as LineItemType,
+        sort_order: item.sort_order,
+        ai_confidence: item.ai_confidence,
+        ai_reasoning: item.ai_reasoning,
+      }),
+    );
+
+    if (lineItems.length > 0) {
+      await supabase.from("quote_line_items").insert(lineItems);
+    }
+
+    return { success: true, data: { quoteId: newQuote.id } };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Create revision error:", err);
     return { error: "An unexpected error occurred." };
   }
 }
